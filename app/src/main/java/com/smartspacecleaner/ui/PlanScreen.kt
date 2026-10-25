@@ -9,6 +9,7 @@ import android.util.Size
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,8 +20,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,8 +32,10 @@ import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -46,6 +51,9 @@ import com.smartspacecleaner.core.model.Plan
 import com.smartspacecleaner.core.model.PlannedItem
 import com.smartspacecleaner.core.model.RiskLevel
 import com.smartspacecleaner.core.model.checkState
+import com.smartspacecleaner.core.report.CompareRole
+import com.smartspacecleaner.core.report.CompareSide
+import com.smartspacecleaner.core.report.DuplicateComparison
 import com.smartspacecleaner.core.text.PreviewKind
 import com.smartspacecleaner.core.text.displayPath
 import com.smartspacecleaner.core.text.extensionLabel
@@ -54,6 +62,7 @@ import com.smartspacecleaner.core.text.previewKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.Instant
 
 @Composable
 fun PlanScreen(
@@ -63,9 +72,11 @@ fun PlanScreen(
     onToggleGroup: (Group) -> Unit,
     onToggleItem: (String) -> Unit,
     onToggleCache: () -> Unit,
+    onOpenFile: (path: String, name: String) -> Unit,
     onExecute: () -> Unit,
 ) {
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    var comparing by remember { mutableStateOf<PlannedItem?>(null) }
     Column(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.weight(1f)) {
             RiskLevel.entries.forEach { level ->
@@ -91,7 +102,14 @@ fun PlanScreen(
                     }
                     if (isExpanded) {
                         items(group.items, key = { "${group.id}|${it.path}" }) { item ->
-                            ItemRow(item, item.path in selected) { onToggleItem(item.path) }
+                            ItemRow(
+                                item = item,
+                                checked = item.path in selected,
+                                onToggle = { onToggleItem(item.path) },
+                                onOpen = {
+                                    if (DuplicateComparison.of(item) != null) comparing = item else onOpenFile(item.path, item.path)
+                                },
+                            )
                         }
                     }
                 }
@@ -104,6 +122,78 @@ fun PlanScreen(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
         ) {
             Text("Выполнить отмеченное (${formatBytes(bytes)}${if (clearCache) " + кэш" else ""})")
+        }
+    }
+
+    comparing?.let { item ->
+        CompareDialog(
+            item = item,
+            checked = item.path in selected,
+            onOpenFile = onOpenFile,
+            onToggle = { onToggleItem(item.path) },
+            onClose = { comparing = null },
+        )
+    }
+}
+
+/** Копия и оригинал рядом: нажатие на карточку открывает файл для просмотра. */
+@Composable
+private fun CompareDialog(
+    item: PlannedItem,
+    checked: Boolean,
+    onOpenFile: (path: String, name: String) -> Unit,
+    onToggle: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val sides = DuplicateComparison.of(item) ?: return
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Сравнение") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                sides.forEach { side -> CompareCard(side) { onOpenFile(side.path, side.path) } }
+                Text(
+                    "Файлы совпадают побайтово (SHA-256). Нажмите на карточку, чтобы открыть файл.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onToggle()
+                onClose()
+            }) { Text(if (checked) "Не удалять" else "Отметить к удалению") }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text("Закрыть") } },
+    )
+}
+
+@Composable
+private fun CompareCard(side: CompareSide, onOpen: () -> Unit) {
+    val removed = side.role == CompareRole.REMOVED_COPY
+    val file = remember(side.path) { File(side.path) }
+    Card(
+        Modifier.fillMaxWidth().clickable(onClick = onOpen),
+        colors = CardDefaults.cardColors(
+            containerColor = if (removed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+        ),
+    ) {
+        Column(Modifier.padding(10.dp)) {
+            Text((if (removed) "🗑 " else "✅ ") + side.role.title, style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Thumbnail(side.path)
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    Text(side.path.substringAfterLast('/'), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "папка: ${displayPath(side.path).substringBeforeLast('/', "").ifEmpty { "корень памяти" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        "${formatBytes(file.length())} · изменён ${DAY_FORMAT.format(Instant.ofEpochMilli(file.lastModified()))}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
         }
     }
 }
@@ -147,9 +237,10 @@ private fun GroupCard(group: Group, check: GroupCheck, expanded: Boolean, onTogg
 }
 
 @Composable
-private fun ItemRow(item: PlannedItem, checked: Boolean, onToggle: () -> Unit) {
+private fun ItemRow(item: PlannedItem, checked: Boolean, onToggle: () -> Unit, onOpen: () -> Unit) {
+    // Галочка — выбор, остальная строка — просмотр файла (для дубля — сравнение с оригиналом).
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(checked = checked, onCheckedChange = { onToggle() })

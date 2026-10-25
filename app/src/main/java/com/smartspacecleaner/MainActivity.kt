@@ -81,6 +81,7 @@ class MainActivity : ComponentActivity() {
                                 onToggleGroup = vm::toggleGroup,
                                 onToggleItem = vm::toggleItem,
                                 onToggleCache = vm::toggleCache,
+                                onOpenFile = ::openFile,
                                 onExecute = vm::execute,
                             )
                             Screen.Executing -> ExecutingScreen()
@@ -110,12 +111,17 @@ class MainActivity : ComponentActivity() {
     /** Открывает файл из «Истории» в программе телефона только для просмотра; из корзины он не переносится. */
     private fun openRecord(record: ActionRecord) {
         val path = HistoryPreview.contentPath(record) ?: return
+        openFile(path, record.originalPath)
+    }
+
+    /** [path] — где лежит содержимое, [name] — имя, по расширению которого выбирается программа. */
+    private fun openFile(path: String, name: String) {
         val file = File(path)
         if (!file.exists()) {
             Toast.makeText(this, "Файла уже нет", Toast.LENGTH_LONG).show()
             return
         }
-        val extension = record.originalPath.substringAfterLast('.', "").lowercase()
+        val extension = name.substringAfterLast('/').substringAfterLast('.', "").lowercase()
         val type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
         val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
         val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
