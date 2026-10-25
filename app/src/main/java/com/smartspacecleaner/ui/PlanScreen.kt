@@ -1,8 +1,13 @@
 package com.smartspacecleaner.ui
 
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.pdf.PdfRenderer
 import android.media.ThumbnailUtils
+import android.os.ParcelFileDescriptor
 import android.util.Size
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -40,8 +46,11 @@ import com.smartspacecleaner.core.model.Plan
 import com.smartspacecleaner.core.model.PlannedItem
 import com.smartspacecleaner.core.model.RiskLevel
 import com.smartspacecleaner.core.model.checkState
+import com.smartspacecleaner.core.text.PreviewKind
 import com.smartspacecleaner.core.text.displayPath
+import com.smartspacecleaner.core.text.extensionLabel
 import com.smartspacecleaner.core.text.formatBytes
+import com.smartspacecleaner.core.text.previewKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -155,27 +164,62 @@ private fun ItemRow(item: PlannedItem, checked: Boolean, onToggle: () -> Unit) {
     }
 }
 
-private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "heic", "gif")
-private val VIDEO_EXTENSIONS = setOf("mp4", "mkv", "mov", "3gp", "webm", "avi")
-
 @Composable
 private fun Thumbnail(path: String) {
     val bitmap by produceState<ImageBitmap?>(initialValue = null, path) {
         value = withContext(Dispatchers.IO) { loadThumbnail(path) }
     }
-    Box(Modifier.size(48.dp)) {
-        bitmap?.let { Image(it, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+        val image = bitmap
+        if (image != null) {
+            Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else {
+            // Пока превью грузится или его нет вовсе — значок с расширением, а не пустое место.
+            Box(
+                Modifier.fillMaxSize().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    extensionLabel(path).ifEmpty { "?" },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
+private const val THUMB_PX = 128
+
 private fun loadThumbnail(path: String): ImageBitmap? = try {
     val file = File(path)
-    val size = Size(128, 128)
-    when (path.substringAfterLast('.', "").lowercase()) {
-        in IMAGE_EXTENSIONS -> ThumbnailUtils.createImageThumbnail(file, size, null)
-        in VIDEO_EXTENSIONS -> ThumbnailUtils.createVideoThumbnail(file, size, null)
-        else -> null
+    val size = Size(THUMB_PX, THUMB_PX)
+    when (previewKind(path)) {
+        PreviewKind.IMAGE -> ThumbnailUtils.createImageThumbnail(file, size, null)
+        PreviewKind.VIDEO -> ThumbnailUtils.createVideoThumbnail(file, size, null)
+        PreviewKind.PDF -> renderPdfFirstPage(file)
+        PreviewKind.OTHER -> null
     }?.asImageBitmap()
 } catch (e: Exception) {
+    // Битый или зашифрованный файл — просто покажем значок.
     null
 }
+
+private fun renderPdfFirstPage(file: File): Bitmap? =
+    ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+        PdfRenderer(fd).use { renderer ->
+            if (renderer.pageCount == 0) return null
+            renderer.openPage(0).use { page ->
+                val scale = THUMB_PX.toFloat() / maxOf(page.width, page.height)
+                val bitmap = Bitmap.createBitmap(
+                    maxOf(1, (page.width * scale).toInt()),
+                    maxOf(1, (page.height * scale).toInt()),
+                    Bitmap.Config.ARGB_8888,
+                )
+                bitmap.eraseColor(Color.WHITE) // страницы PDF прозрачные, на тёмной теме иначе будет чёрный квадрат
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                bitmap
+            }
+        }
+    }
