@@ -35,4 +35,11 @@ class TextTest {
         )
         assertEquals("/mnt/other/x.jpg", displayPath("/mnt/other/x.jpg"))
     }
+
+    @Test
+    fun `day with month and year for file dates`() {
+        val zone = java.time.ZoneId.of("Europe/Moscow")
+        val instant = java.time.LocalDateTime.of(2021, 7, 9, 16, 31).atZone(zone).toInstant()
+        assertEquals("9 июля 2021", formatDate(instant, zone))
+    }
 }

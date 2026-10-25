@@ -58,11 +58,13 @@ import com.smartspacecleaner.core.text.PreviewKind
 import com.smartspacecleaner.core.text.displayPath
 import com.smartspacecleaner.core.text.extensionLabel
 import com.smartspacecleaner.core.text.formatBytes
+import com.smartspacecleaner.core.text.formatDate
 import com.smartspacecleaner.core.text.previewKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
+import java.time.ZoneId
 
 @Composable
 fun PlanScreen(
@@ -189,7 +191,7 @@ private fun CompareCard(side: CompareSide, onOpen: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Text(
-                        "${formatBytes(file.length())} · изменён ${DAY_FORMAT.format(Instant.ofEpochMilli(file.lastModified()))}",
+                        "${formatBytes(file.length())} · изменён ${formatDate(Instant.ofEpochMilli(file.lastModified()), ZoneId.systemDefault())}",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

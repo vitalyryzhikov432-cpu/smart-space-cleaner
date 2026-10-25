@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Ручка метлы -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M66.6,29.2 L70.8,33.4 L54.2,50 L50,45.8 Z" />
+    <!-- Перехват -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M45.2,44.4 L55.6,54.8 L52.8,57.6 L42.4,47.2 Z" />
+    <!-- Веник -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M41,48.6 L54.4,62 C50,70.5 43,76 32,78 L30.4,76.4 L36.5,68.6 L33.8,68.2 L29.6,72.6 L27,70 C28.7,59.6 33.6,52.6 41,48.6 Z" />
+    <!-- Искры -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M72,52 L73.8,57.2 L79,59 L73.8,60.8 L72,66 L70.2,60.8 L65,59 L70.2,57.2 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M78,40 L79,43 L82,44 L79,45 L78,48 L77,45 L74,44 L77,43 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M62,68 L62.8,70.2 L65,71 L62.8,71.8 L62,74 L61.2,71.8 L59,71 L61.2,70.2 Z" />
+</vector>

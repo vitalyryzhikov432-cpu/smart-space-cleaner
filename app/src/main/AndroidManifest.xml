@@ -12,6 +12,8 @@
 
     <application
         android:name=".SmartSpaceApp"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Smart Space Cleaner"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity

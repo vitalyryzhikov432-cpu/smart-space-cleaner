@@ -7,13 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -24,7 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.smartspacecleaner.R
 import com.smartspacecleaner.core.model.ActionKind
 import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.model.ActionStatus
@@ -35,6 +40,7 @@ import com.smartspacecleaner.core.text.formatBytes
 import com.smartspacecleaner.core.text.plural
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -132,23 +138,46 @@ fun HistoryScreen(
     }
 }
 
+private val RESTORE_GREEN = Color(0xFF2E7D32)
+private val DELETE_RED = Color(0xFFC62828)
+
 @Composable
 private fun TrashHeader(trash: TrashContents, onRestoreAll: () -> Unit, onPurgeAll: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Text("Корзина", style = MaterialTheme.typography.headlineSmall)
-        val freesBy = trash.freesBy
-        if (trash.ids.isEmpty() || freesBy == null) {
-            Text("Корзина пуста", style = MaterialTheme.typography.bodyMedium)
-        } else {
-            val count = trash.ids.size
-            Text(
-                "$count ${plural(count, "файл", "файла", "файлов")} · ${formatBytes(trash.bytes)} · освободится ${DAY_FORMAT.format(freesBy)}",
-                style = MaterialTheme.typography.bodyMedium,
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                painterResource(R.drawable.ic_trash),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp),
             )
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onRestoreAll) { Text("Вернуть все") }
-                Button(onClick = onPurgeAll) { Text("Удалить все") }
-            }
+            Text("Корзина", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(start = 8.dp))
+        }
+        val freesBy = trash.freesBy
+        val empty = trash.ids.isEmpty() || freesBy == null
+        Text(
+            if (empty) {
+                "Корзина пуста"
+            } else {
+                val count = trash.ids.size
+                "$count ${plural(count, "файл", "файла", "файлов")} · ${formatBytes(trash.bytes)} · освободится ${DAY_FORMAT.format(freesBy)}"
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(
+                onClick = onRestoreAll,
+                enabled = !empty,
+                colors = ButtonDefaults.buttonColors(containerColor = RESTORE_GREEN),
+                modifier = Modifier.weight(1f),
+            ) { Text("Вернуть все") }
+            Button(
+                onClick = onPurgeAll,
+                enabled = !empty,
+                colors = ButtonDefaults.buttonColors(containerColor = DELETE_RED),
+                modifier = Modifier.weight(1f),
+            ) { Text("Удалить все") }
         }
     }
 }
@@ -184,16 +213,23 @@ private fun DetailsDialog(record: ActionRecord, readDetails: (ActionRecord) -> L
 @Composable
 private fun HistoryRow(record: ActionRecord, onRestore: (Long) -> Unit, onOpen: () -> Unit, onDetails: () -> Unit, onPurge: () -> Unit) {
     val content = HistoryPreview.contentPath(record)
+    // Файл мог убрать кто-то другой уже после нас (например, WhatsApp чистит свою папку).
+    val present by produceState(initialValue = true, content) {
+        value = content != null && withContext(Dispatchers.IO) { File(content).exists() }
+    }
     Row(
         Modifier.fillMaxWidth()
-            .clickable(enabled = content != null, onClick = onOpen)
+            .clickable(enabled = content != null && present, onClick = onOpen)
             .padding(start = 16.dp, end = 16.dp, top = 8.dp),
     ) {
-        Thumbnail(content, name = record.originalPath)
+        Thumbnail(content.takeIf { present }, name = record.originalPath)
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(record.originalPath.substringAfterLast('/'))
             Text("откуда: ${HistoryPreview.origin(record)} · ${formatBytes(record.size)}", style = MaterialTheme.typography.bodySmall)
             Text(statusText(record), style = MaterialTheme.typography.bodySmall)
+            if (content != null && !present) {
+                Text("файла сейчас нет на месте", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            }
             record.keptOriginalPath?.let {
                 Text("оригинал: ${displayPath(it)}", style = MaterialTheme.typography.bodySmall)
             }

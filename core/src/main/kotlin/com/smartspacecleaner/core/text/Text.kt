@@ -1,5 +1,8 @@
 package com.smartspacecleaner.core.text
 
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToLong
 
@@ -14,6 +17,11 @@ fun formatBytes(bytes: Long): String = when {
     bytes >= KB -> "${(bytes / KB).roundToLong()} КБ"
     else -> "$bytes Б"
 }
+
+private val DATE_WITH_YEAR = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))
+
+/** «9 июля 2021» — с годом, иначе у старых файлов дата обманчиво выглядит свежей. */
+fun formatDate(instant: Instant, zone: ZoneId): String = DATE_WITH_YEAR.format(instant.atZone(zone))
 
 private const val SHARED_STORAGE = "/storage/emulated/0/"
 
