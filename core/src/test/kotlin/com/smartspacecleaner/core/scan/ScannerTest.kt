@@ -34,4 +34,25 @@ class ScannerTest {
         assertEquals(1, dup.items.size)
         assertTrue(plan.groups.flatMap { it.items }.none { it.path.contains("Android/data") || it.path.contains(".SmartSpaceCleaner") })
     }
+
+    @Test
+    fun `skips hidden files and hidden folders such as nomedia, gallery trash and app link caches`() {
+        val fs = FakeFileSystem()
+        val layout = StorageLayout(ROOT)
+        val clock = FakeClock()
+        fs.add(p("Download/a.jpg"), bytes(4096, 1))
+        fs.add(p("DCIM/.globalTrash/.a.jpg"), bytes(4096, 1))
+        fs.add(p("Android/media/com.whatsapp/WhatsApp/Media/.Links/x1"), bytes(2048, 2))
+        fs.add(p("Android/media/com.whatsapp/WhatsApp/Media/.Links/x2"), bytes(2048, 2))
+        fs.add(p("Telegram/Telegram Images/.nomedia"), bytes(43, 3), clock.now().minus(java.time.Duration.ofDays(400)))
+        val planner = Planner(
+            layout, KeepCopyPolicy(layout), DuplicateFinder(Hasher(fs)), ApkRule(FakeApkInspector()),
+            OldScreenshotRule(layout, clock), LargeFileRule(), MessengerMediaRule(layout, clock),
+        )
+
+        val plan = Scanner(fs, layout, planner).scan()
+
+        assertEquals(1, plan.scannedFiles)
+        assertTrue(plan.groups.flatMap { it.items }.isEmpty())
+    }
 }

@@ -24,5 +24,8 @@ class StorageLayout(val root: String) {
     fun isWorkFolder(path: String) =
         !isUnder(path, "DCIM") && !isUnder(path, "Pictures") && !isDownload(path) && messengerOf(path) == null
 
+    /** Скрытый файл или файл в скрытой папке: .nomedia, корзины галереи, служебные кэши приложений. */
+    fun isHidden(path: String): Boolean = relative(path).split('/').any { it.startsWith('.') }
+
     fun parentRelative(path: String): String = relative(path).substringBeforeLast('/', "")
 }

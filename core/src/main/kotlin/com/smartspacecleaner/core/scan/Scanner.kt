@@ -9,10 +9,10 @@ class Scanner(
     private val layout: StorageLayout,
     private val planner: Planner,
 ) {
-    /** Только чтение: обходит память и строит план. */
+    /** Только чтение: обходит память и строит план. Скрытые файлы и папки — служебные, их не трогаем. */
     fun scan(onProgress: (filesSeen: Int) -> Unit = {}): Plan {
         val entries = ArrayList<FileEntry>()
-        fs.walk(layout.root, layout.excludedPrefixes).forEach {
+        fs.walk(layout.root, layout.excludedPrefixes).filterNot { layout.isHidden(it.path) }.forEach {
             entries += it
             if (entries.size % 500 == 0) onProgress(entries.size)
         }
