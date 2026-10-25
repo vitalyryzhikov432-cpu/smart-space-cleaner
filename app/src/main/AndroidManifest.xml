@@ -11,6 +11,7 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <application
+        android:name=".SmartSpaceApp"
         android:label="Smart Space Cleaner"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
