@@ -10,4 +10,5 @@ class RoomActionLogStore(private val dao: ActionRecordDao) : ActionLogStore {
     override fun get(id: Long): ActionRecord? = dao.get(id)?.toDomain()
     override fun byStatus(status: ActionStatus): List<ActionRecord> = dao.byStatus(status.name).map { it.toDomain() }
     override fun all(): List<ActionRecord> = dao.all().map { it.toDomain() }
+    override fun delete(ids: Collection<Long>) = ids.chunked(500).forEach { dao.delete(it) }
 }

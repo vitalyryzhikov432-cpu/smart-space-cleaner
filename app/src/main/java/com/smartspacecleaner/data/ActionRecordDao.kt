@@ -21,4 +21,7 @@ interface ActionRecordDao {
 
     @Query("SELECT * FROM action_records ORDER BY id")
     fun all(): List<ActionRecordEntity>
+
+    @Query("DELETE FROM action_records WHERE id IN (:ids)")
+    fun delete(ids: List<Long>)
 }

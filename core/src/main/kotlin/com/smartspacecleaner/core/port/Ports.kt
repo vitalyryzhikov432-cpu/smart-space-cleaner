@@ -36,6 +36,8 @@ interface ActionLogStore {
     fun get(id: Long): ActionRecord?
     fun byStatus(status: ActionStatus): List<ActionRecord>
     fun all(): List<ActionRecord>
+    /** Стирает записи из журнала; сами файлы не трогает. */
+    fun delete(ids: Collection<Long>)
 }
 
 enum class ApkStatus { INSTALLED_SAME_OR_NEWER, NOT_INSTALLED_OR_OLDER, UNREADABLE }

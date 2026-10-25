@@ -3,6 +3,7 @@ package com.smartspacecleaner
 import android.content.Context
 import android.os.Environment
 import androidx.room.Room
+import com.smartspacecleaner.core.action.HistoryCleaner
 import com.smartspacecleaner.core.action.DuplicateStrategy
 import com.smartspacecleaner.core.action.Executor
 import com.smartspacecleaner.core.action.PendingReconciler
@@ -44,6 +45,7 @@ class AppContainer(context: Context) {
     val executor: Executor
     val restorer: Restorer
     val purger: TrashPurger
+    val historyCleaner: HistoryCleaner
     val reconciler: PendingReconciler
 
     init {
@@ -61,6 +63,7 @@ class AppContainer(context: Context) {
         executor = Executor(fs, log, clock, hasher, layout, duplicateStrategy)
         restorer = Restorer(fs, log, hasher)
         purger = TrashPurger(fs, log, clock)
+        historyCleaner = HistoryCleaner(log, clock)
         reconciler = PendingReconciler(fs, log)
     }
 }

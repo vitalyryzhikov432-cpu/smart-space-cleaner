@@ -66,6 +66,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val (plan, summary) = withContext(Dispatchers.IO) {
                 c.reconciler.reconcile()
                 c.purger.purgeExpired()
+                c.historyCleaner.forgetOld()
                 val plan = c.scanner.scan { n -> _state.update { s -> s.copy(filesSeen = n) } }
                 plan to SummaryBuilder.build(c.storageInfo.freeBytes(), c.storageInfo.totalBytes(), plan)
             }
@@ -156,6 +157,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 "Возвращено: ${result.restored}, не удалось: ${result.failed} — причины в списке ниже"
             }
             _state.update { it.copy(history = loadHistory(), toast = message) }
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            val cleared = withContext(Dispatchers.IO) { c.historyCleaner.clearEarlier() }
+            _state.update { it.copy(history = loadHistory(), toast = "Записей стёрто: $cleared") }
         }
     }
 

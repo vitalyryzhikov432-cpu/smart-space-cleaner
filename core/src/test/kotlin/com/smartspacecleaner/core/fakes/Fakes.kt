@@ -103,6 +103,9 @@ class InMemoryActionLogStore : ActionLogStore {
     override fun get(id: Long) = records[id]
     override fun byStatus(status: ActionStatus) = records.values.filter { it.status == status }
     override fun all() = records.values.toList()
+    override fun delete(ids: Collection<Long>) {
+        ids.forEach { records.remove(it) }
+    }
 }
 
 class FakeApkInspector(private val statuses: Map<String, ApkStatus> = emptyMap()) : ApkInspector {
