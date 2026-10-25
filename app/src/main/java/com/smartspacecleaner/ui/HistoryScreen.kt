@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.smartspacecleaner.core.model.ActionKind
 import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.model.ActionStatus
+import com.smartspacecleaner.core.text.displayPath
 import com.smartspacecleaner.core.text.formatBytes
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -96,6 +97,9 @@ private fun HistoryRow(record: ActionRecord, onRestore: (Long) -> Unit, onPurge:
     Column(Modifier.fillMaxWidth().padding(start = 32.dp, end = 16.dp, top = 4.dp)) {
         Text(record.originalPath.substringAfterLast('/'))
         Text(statusText(record), style = MaterialTheme.typography.bodySmall)
+        record.keptOriginalPath?.let {
+            Text("оригинал: ${displayPath(it)}", style = MaterialTheme.typography.bodySmall)
+        }
         Row {
             if (record.status == ActionStatus.DONE && record.kind != ActionKind.DELETE_APK) {
                 TextButton(onClick = { onRestore(record.id) }) { Text("Вернуть") }
@@ -114,7 +118,7 @@ private fun statusText(r: ActionRecord): String = when (r.status) {
     ActionStatus.PURGED -> "удалён окончательно"
     ActionStatus.DONE -> when (r.kind) {
         ActionKind.TRASH -> "в корзине до ${r.expiresAt?.let { DAY_FORMAT.format(it) } ?: "—"}"
-        ActionKind.DELETE_DUPLICATE -> "удалён, оригинал: ${r.keptOriginalPath}"
+        ActionKind.DELETE_DUPLICATE -> "удалён"
         ActionKind.DELETE_APK -> "удалён окончательно — при необходимости скачайте заново"
     }
 }

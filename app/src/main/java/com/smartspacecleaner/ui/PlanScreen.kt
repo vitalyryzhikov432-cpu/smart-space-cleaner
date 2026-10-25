@@ -40,6 +40,7 @@ import com.smartspacecleaner.core.model.Plan
 import com.smartspacecleaner.core.model.PlannedItem
 import com.smartspacecleaner.core.model.RiskLevel
 import com.smartspacecleaner.core.model.checkState
+import com.smartspacecleaner.core.text.displayPath
 import com.smartspacecleaner.core.text.formatBytes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -146,10 +147,10 @@ private fun ItemRow(item: PlannedItem, checked: Boolean, onToggle: () -> Unit) {
         Thumbnail(item.path)
         Column(Modifier.weight(1f).padding(start = 8.dp)) {
             Text(item.path.substringAfterLast('/'), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val original = item.keptOriginalPath?.let {
-                " · оригинал в ${it.substringBeforeLast('/').substringAfterLast('/')}"
-            } ?: ""
-            Text(formatBytes(item.size) + original, style = MaterialTheme.typography.bodySmall)
+            Text(formatBytes(item.size), style = MaterialTheme.typography.bodySmall)
+            item.keptOriginalPath?.let {
+                Text("оригинал: ${displayPath(it)}", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

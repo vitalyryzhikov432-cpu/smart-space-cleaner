@@ -26,4 +26,13 @@ class TextTest {
         assertEquals("файла", plural(22, "файл", "файла", "файлов"))
         assertEquals("файлов", plural(0, "файл", "файла", "файлов"))
     }
+
+    @Test
+    fun `shows a path the way the phone's file manager does`() {
+        assertEquals(
+            "Pictures/Gallery/owner/кадет/IMG_1.jpg",
+            displayPath("/storage/emulated/0/Pictures/Gallery/owner/кадет/IMG_1.jpg"),
+        )
+        assertEquals("/mnt/other/x.jpg", displayPath("/mnt/other/x.jpg"))
+    }
 }

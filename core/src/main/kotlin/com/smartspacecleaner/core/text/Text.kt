@@ -15,6 +15,11 @@ fun formatBytes(bytes: Long): String = when {
     else -> "$bytes Б"
 }
 
+private const val SHARED_STORAGE = "/storage/emulated/0/"
+
+/** Путь без системного префикса — так, как его показывает «Проводник». */
+fun displayPath(path: String): String = path.removePrefix(SHARED_STORAGE)
+
 fun plural(n: Int, one: String, few: String, many: String): String {
     val mod100 = n % 100
     val mod10 = n % 10
