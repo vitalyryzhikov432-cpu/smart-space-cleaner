@@ -147,6 +147,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun restoreAll(ids: List<Long>) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { c.restorer.restoreAll(ids) }
+            val message = if (result.failed == 0) {
+                "Возвращено файлов: ${result.restored}"
+            } else {
+                "Возвращено: ${result.restored}, не удалось: ${result.failed} — причины в списке ниже"
+            }
+            _state.update { it.copy(history = loadHistory(), toast = message) }
+        }
+    }
+
     fun purgeNow(ids: List<Long>) {
         viewModelScope.launch {
             val purged = withContext(Dispatchers.IO) { c.purger.purgeNow(ids) }

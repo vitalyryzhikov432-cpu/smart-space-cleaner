@@ -1,11 +1,13 @@
 package com.smartspacecleaner
 
 import android.content.ActivityNotFoundException
+import android.content.ContentUris
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.os.storage.StorageManager
+import android.provider.MediaStore
 import android.provider.Settings
 import android.webkit.MimeTypeMap
 import android.widget.Toast
@@ -24,8 +26,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartspacecleaner.core.model.ActionKind
 import com.smartspacecleaner.core.model.ActionRecord
+import com.smartspacecleaner.core.model.ActionStatus
 import com.smartspacecleaner.core.report.CacheOutcome
+import com.smartspacecleaner.core.report.FileDetails
+import com.smartspacecleaner.data.FileFactsReader
 import com.smartspacecleaner.core.report.HistoryPreview
 import com.smartspacecleaner.ui.ExecutingScreen
 import com.smartspacecleaner.ui.HistoryScreen
@@ -37,6 +43,7 @@ import com.smartspacecleaner.ui.ScanningScreen
 import com.smartspacecleaner.ui.Screen
 import com.smartspacecleaner.ui.SummaryScreen
 import java.io.File
+import java.time.ZoneId
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
@@ -86,7 +93,15 @@ class MainActivity : ComponentActivity() {
                             )
                             Screen.Executing -> ExecutingScreen()
                             Screen.Report -> ReportScreen(state.report!!, onHistory = vm::openHistory, onDone = vm::startScan)
-                            Screen.History -> HistoryScreen(state.history, vm::restore, vm::purgeNow, ::openRecord, vm::closeHistory)
+                            Screen.History -> HistoryScreen(
+                                records = state.history,
+                                onRestore = vm::restore,
+                                onPurge = vm::purgeNow,
+                                onRestoreAll = vm::restoreAll,
+                                onOpen = ::openRecord,
+                                readDetails = ::readDetails,
+                                onBack = vm::closeHistory,
+                            )
                         }
                     }
                 }
@@ -123,13 +138,43 @@ class MainActivity : ComponentActivity() {
         }
         val extension = name.substringAfterLast('/').substringAfterLast('.', "").lowercase()
         val type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
-        val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
+        // Через каталог медиафайлов Галерея знает файл и заполняет «Сведения»; файлов из корзины в нём нет.
+        val uri = mediaStoreUri(path) ?: FileProvider.getUriForFile(this, "$packageName.files", file)
         val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         try {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             Toast.makeText(this, "Нет приложения, чтобы открыть этот файл", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun mediaStoreUri(path: String): Uri? = try {
+        contentResolver.query(
+            MediaStore.Files.getContentUri("external"),
+            arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.MEDIA_TYPE),
+            "${MediaStore.Files.FileColumns.DATA} = ?",
+            arrayOf(path),
+            null,
+        )?.use { c ->
+            if (!c.moveToFirst()) return@use null
+            val id = c.getLong(0)
+            val base = when (c.getInt(1)) {
+                MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+                else -> MediaStore.Files.getContentUri("external")
+            }
+            ContentUris.withAppendedId(base, id)
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun readDetails(record: ActionRecord): List<Pair<String, String>>? {
+        val path = HistoryPreview.contentPath(record) ?: return null
+        val inTrashUntil = record.expiresAt.takeIf { record.status == ActionStatus.DONE && record.kind == ActionKind.TRASH }
+        val facts = FileFactsReader.read(path, record.originalPath, inTrashUntil) ?: return null
+        return FileDetails.lines(facts, ZoneId.systemDefault())
     }
 
     /** Системная очистка кэша всех приложений; на MIUI может быть недоступна — тогда открываем «Хранилище». */

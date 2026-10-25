@@ -13,11 +13,20 @@ sealed interface RestoreResult {
     data class Failed(val reason: String) : RestoreResult
 }
 
+data class BulkRestore(val restored: Int, val failed: Int)
+
 class Restorer(
     private val fs: FileSystem,
     private val log: ActionLogStore,
     private val hasher: Hasher,
 ) {
+    /** «Вернуть все»: возвращает по очереди, один неудачный файл не останавливает остальные. */
+    fun restoreAll(recordIds: Collection<Long>): BulkRestore {
+        val results = recordIds.map { restore(it) }
+        val restored = results.count { it is RestoreResult.Restored }
+        return BulkRestore(restored, results.size - restored)
+    }
+
     fun restore(recordId: Long): RestoreResult {
         val r = log.get(recordId) ?: return RestoreResult.Failed("запись не найдена")
         if (r.status != ActionStatus.DONE) return RestoreResult.Failed("это действие нельзя отменить")

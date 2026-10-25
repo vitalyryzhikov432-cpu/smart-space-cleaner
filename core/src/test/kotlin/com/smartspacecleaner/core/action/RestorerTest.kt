@@ -156,4 +156,19 @@ class RestorerTest {
         val result = restorer.restore(second.id)
         assertTrue(result is RestoreResult.Failed && result.reason.contains("окончательно"))
     }
+
+    @Test
+    fun `restore all returns every file it can and counts the rest`() {
+        fs.add(p("DCIM/Screenshots/a.png"), bytes(3000, 1))
+        fs.add(p("DCIM/Screenshots/b.png"), bytes(3100, 2))
+        val records = run(
+            DuplicateStrategy.TRASH,
+            personalPlan(p("DCIM/Screenshots/a.png"), p("DCIM/Screenshots/b.png")),
+            p("DCIM/Screenshots/a.png"), p("DCIM/Screenshots/b.png"),
+        )
+        fs.delete(records[1].trashPath!!)
+
+        assertEquals(BulkRestore(restored = 1, failed = 1), restorer.restoreAll(records.map { it.id }))
+        assertTrue(fs.exists(p("DCIM/Screenshots/a.png")))
+    }
 }
