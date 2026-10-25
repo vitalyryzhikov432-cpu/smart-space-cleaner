@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.storage.StorageManager
 import android.provider.Settings
+import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -21,8 +22,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.report.CacheOutcome
+import com.smartspacecleaner.core.report.HistoryPreview
 import com.smartspacecleaner.ui.ExecutingScreen
 import com.smartspacecleaner.ui.HistoryScreen
 import com.smartspacecleaner.ui.MainViewModel
@@ -32,6 +36,7 @@ import com.smartspacecleaner.ui.ReportScreen
 import com.smartspacecleaner.ui.ScanningScreen
 import com.smartspacecleaner.ui.Screen
 import com.smartspacecleaner.ui.SummaryScreen
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
@@ -80,7 +85,7 @@ class MainActivity : ComponentActivity() {
                             )
                             Screen.Executing -> ExecutingScreen()
                             Screen.Report -> ReportScreen(state.report!!, onHistory = vm::openHistory, onDone = vm::startScan)
-                            Screen.History -> HistoryScreen(state.history, vm::restore, vm::purgeNow, vm::closeHistory)
+                            Screen.History -> HistoryScreen(state.history, vm::restore, vm::purgeNow, ::openRecord, vm::closeHistory)
                         }
                     }
                 }
@@ -99,6 +104,25 @@ class MainActivity : ComponentActivity() {
             startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+    }
+
+    /** Открывает файл из «Истории» в программе телефона только для просмотра; из корзины он не переносится. */
+    private fun openRecord(record: ActionRecord) {
+        val path = HistoryPreview.contentPath(record) ?: return
+        val file = File(path)
+        if (!file.exists()) {
+            Toast.makeText(this, "Файла уже нет", Toast.LENGTH_LONG).show()
+            return
+        }
+        val extension = record.originalPath.substringAfterLast('.', "").lowercase()
+        val type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "*/*"
+        val uri = FileProvider.getUriForFile(this, "$packageName.files", file)
+        val intent = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, "Нет приложения, чтобы открыть этот файл", Toast.LENGTH_LONG).show()
         }
     }
 

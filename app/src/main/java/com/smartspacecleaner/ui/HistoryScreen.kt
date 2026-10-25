@@ -1,5 +1,6 @@
 package com.smartspacecleaner.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.smartspacecleaner.core.model.ActionKind
 import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.model.ActionStatus
+import com.smartspacecleaner.core.report.HistoryPreview
 import com.smartspacecleaner.core.text.displayPath
 import com.smartspacecleaner.core.text.formatBytes
 import java.time.ZoneId
@@ -36,6 +38,7 @@ fun HistoryScreen(
     records: List<ActionRecord>,
     onRestore: (Long) -> Unit,
     onPurge: (List<Long>) -> Unit,
+    onOpen: (ActionRecord) -> Unit,
     onBack: () -> Unit,
 ) {
     var confirmPurge by remember { mutableStateOf<List<Long>?>(null) }
@@ -69,7 +72,7 @@ fun HistoryScreen(
                         }
                     }
                     items(groupRecords, key = { it.id }) { record ->
-                        HistoryRow(record, onRestore) { confirmPurge = listOf(record.id) }
+                        HistoryRow(record, onRestore, { onOpen(record) }) { confirmPurge = listOf(record.id) }
                     }
                 }
             }
@@ -93,19 +96,28 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun HistoryRow(record: ActionRecord, onRestore: (Long) -> Unit, onPurge: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(start = 32.dp, end = 16.dp, top = 4.dp)) {
-        Text(record.originalPath.substringAfterLast('/'))
-        Text(statusText(record), style = MaterialTheme.typography.bodySmall)
-        record.keptOriginalPath?.let {
-            Text("оригинал: ${displayPath(it)}", style = MaterialTheme.typography.bodySmall)
-        }
-        Row {
-            if (record.status == ActionStatus.DONE && record.kind != ActionKind.DELETE_APK) {
-                TextButton(onClick = { onRestore(record.id) }) { Text("Вернуть") }
+private fun HistoryRow(record: ActionRecord, onRestore: (Long) -> Unit, onOpen: () -> Unit, onPurge: () -> Unit) {
+    val content = HistoryPreview.contentPath(record)
+    Row(
+        Modifier.fillMaxWidth()
+            .clickable(enabled = content != null, onClick = onOpen)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp),
+    ) {
+        Thumbnail(content, name = record.originalPath)
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(record.originalPath.substringAfterLast('/'))
+            Text("откуда: ${HistoryPreview.origin(record)} · ${formatBytes(record.size)}", style = MaterialTheme.typography.bodySmall)
+            Text(statusText(record), style = MaterialTheme.typography.bodySmall)
+            record.keptOriginalPath?.let {
+                Text("оригинал: ${displayPath(it)}", style = MaterialTheme.typography.bodySmall)
             }
-            if (record.status == ActionStatus.DONE && record.kind == ActionKind.TRASH) {
-                TextButton(onClick = onPurge) { Text("Удалить сейчас") }
+            Row {
+                if (record.status == ActionStatus.DONE && record.kind != ActionKind.DELETE_APK) {
+                    TextButton(onClick = { onRestore(record.id) }) { Text("Вернуть") }
+                }
+                if (record.status == ActionStatus.DONE && record.kind == ActionKind.TRASH) {
+                    TextButton(onClick = onPurge) { Text("Удалить сейчас") }
+                }
             }
         }
     }

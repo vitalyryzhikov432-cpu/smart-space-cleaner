@@ -164,10 +164,11 @@ private fun ItemRow(item: PlannedItem, checked: Boolean, onToggle: () -> Unit) {
     }
 }
 
+/** [path] — откуда читать содержимое, [name] — имя, по расширению которого выбирается вид превью. */
 @Composable
-private fun Thumbnail(path: String) {
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, path) {
-        value = withContext(Dispatchers.IO) { loadThumbnail(path) }
+internal fun Thumbnail(path: String?, name: String = path.orEmpty()) {
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, path, name) {
+        value = path?.let { withContext(Dispatchers.IO) { loadThumbnail(it, name) } }
     }
     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
         val image = bitmap
@@ -180,7 +181,7 @@ private fun Thumbnail(path: String) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    extensionLabel(path).ifEmpty { "?" },
+                    extensionLabel(name).ifEmpty { "?" },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     maxLines = 1,
@@ -192,10 +193,10 @@ private fun Thumbnail(path: String) {
 
 private const val THUMB_PX = 128
 
-private fun loadThumbnail(path: String): ImageBitmap? = try {
+private fun loadThumbnail(path: String, name: String): ImageBitmap? = try {
     val file = File(path)
     val size = Size(THUMB_PX, THUMB_PX)
-    when (previewKind(path)) {
+    when (previewKind(name)) {
         PreviewKind.IMAGE -> ThumbnailUtils.createImageThumbnail(file, size, null)
         PreviewKind.VIDEO -> ThumbnailUtils.createVideoThumbnail(file, size, null)
         PreviewKind.PDF -> renderPdfFirstPage(file)
