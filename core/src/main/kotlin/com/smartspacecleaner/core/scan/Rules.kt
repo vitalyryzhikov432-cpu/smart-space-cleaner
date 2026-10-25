@@ -37,7 +37,7 @@ enum class LargeKind(val title: String) {
     OTHER("Другие крупные файлы"),
 }
 
-class LargeFileRule(val minSizeBytes: Long = 100L * 1024 * 1024) {
+class LargeFileRule(val minSizeBytes: Long = 100_000_000) {
     fun find(entries: List<FileEntry>): Map<LargeKind, List<FileEntry>> =
         entries.filter { it.size >= minSizeBytes }.groupBy { kindOf(it) }
 

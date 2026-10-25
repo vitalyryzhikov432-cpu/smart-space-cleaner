@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class SummaryBuilderTest {
-    private val gb = 1024L * 1024 * 1024
+    private val gb = 1_000_000_000L
     private val cache = Group("app-cache", GroupKind.APP_CACHE, RiskLevel.SAFE, "Кэш приложений", "", "", "", emptyList(), true)
     private fun group(id: String, title: String, bytes: Long) =
         Group(id, GroupKind.DUPLICATES, RiskLevel.EXACT, title, "", "", "", listOf(PlannedItem(p(id), bytes, T0)), true)

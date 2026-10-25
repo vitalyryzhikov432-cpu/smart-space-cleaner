@@ -27,6 +27,28 @@ class KeepCopyPolicyTest {
     }
 
     @Test
+    fun `downloads beat messenger folders that clean themselves`() {
+        assertEquals(
+            p("Download/x (1).jpg"),
+            policy.chooseKeeper(
+                listOf(p("Download/x (1).jpg"), p("Android/media/org.telegram.messenger/Telegram/Telegram Images/x.jpg")),
+            ),
+        )
+    }
+
+    @Test
+    fun `hidden files and hidden folders are never kept`() {
+        assertEquals(
+            p("Download/IMG_1.jpg"),
+            policy.chooseKeeper(listOf(p("DCIM/Camera/.trashed-1700000000-IMG_1.jpg"), p("Download/IMG_1.jpg"))),
+        )
+        assertEquals(
+            p("Telegram/IMG_1.jpg"),
+            policy.chooseKeeper(listOf(p("MIUI/Gallery/cloud/.trashBin/IMG_1.jpg"), p("Telegram/IMG_1.jpg"))),
+        )
+    }
+
+    @Test
     fun `name without copy suffix wins inside the same folder rank`() {
         assertEquals(p("redmi6/IMG_1.jpg"), policy.chooseKeeper(listOf(p("redmi6/IMG_1(1).jpg"), p("redmi6/IMG_1.jpg"))))
     }

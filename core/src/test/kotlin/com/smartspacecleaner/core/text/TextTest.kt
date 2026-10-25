@@ -5,14 +5,14 @@ import org.junit.jupiter.api.Test
 
 class TextTest {
     @Test
-    fun `formats bytes in russian units`() {
+    fun `formats bytes in decimal russian units like android settings`() {
         assertEquals("0 Б", formatBytes(0))
         assertEquals("512 Б", formatBytes(512))
         assertEquals("2 КБ", formatBytes(1536))
-        assertEquals("5 МБ", formatBytes(5L * 1024 * 1024))
-        assertEquals("100 МБ", formatBytes(100L * 1024 * 1024))
-        assertEquals("1,8 ГБ", formatBytes(1_932_735_283))
-        assertEquals("16,5 ГБ", formatBytes(17_716_740_096))
+        assertEquals("5 МБ", formatBytes(5_000_000))
+        assertEquals("100 МБ", formatBytes(100_000_000))
+        assertEquals("1,8 ГБ", formatBytes(1_800_000_000))
+        assertEquals("128,0 ГБ", formatBytes(128_000_000_000))
     }
 
     @Test

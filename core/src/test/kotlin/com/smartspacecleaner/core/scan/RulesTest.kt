@@ -58,7 +58,7 @@ class RulesTest {
 
     @Test
     fun `large files start at exactly 100 MB and are split by kind`() {
-        val mb100 = 100L * 1024 * 1024
+        val mb100 = 100_000_000L
         val found = LargeFileRule().find(
             listOf(
                 entry("Movies/a.MP4", size = mb100),

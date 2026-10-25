@@ -17,10 +17,9 @@ class PurgeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
     override suspend fun doWork(): Result {
         if (!Environment.isExternalStorageManager()) return Result.success()
         val container = (applicationContext as SmartSpaceApp).container
-        withContext(Dispatchers.IO) {
-            container.reconciler.reconcile()
-            container.purger.purgeExpired()
-        }
+        // Сверку PENDING здесь не делаем: она может идти одновременно с выполнением плана
+        // и затереть DONE на FAILED. Сбои разбираются при каждом запуске сканирования.
+        withContext(Dispatchers.IO) { container.purger.purgeExpired() }
         return Result.success()
     }
 

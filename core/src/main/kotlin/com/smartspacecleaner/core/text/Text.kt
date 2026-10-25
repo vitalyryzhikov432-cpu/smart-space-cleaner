@@ -3,9 +3,10 @@ package com.smartspacecleaner.core.text
 import java.util.Locale
 import kotlin.math.roundToLong
 
-private const val KB = 1024.0
-private const val MB = KB * 1024
-private const val GB = MB * 1024
+// Десятичные единицы, как в «Настройки → Хранилище» Android/MIUI: иначе цифры расходятся с системными.
+private const val KB = 1000.0
+private const val MB = KB * 1000
+private const val GB = MB * 1000
 
 fun formatBytes(bytes: Long): String = when {
     bytes >= GB -> String.format(Locale.ROOT, "%.1f", bytes / GB).replace('.', ',') + " ГБ"
