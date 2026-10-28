@@ -4,6 +4,9 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,6 +60,7 @@ private val SESSION_FORMAT: DateTimeFormatter =
 private val RESTORE_GREEN = Color(0xFF2E7D32)
 private val DELETE_RED = Color(0xFFC62828)
 private val TRASH_ORANGE = Color(0xFFE65100)
+private val COMPACT = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
 
 @Composable
 fun HistoryScreen(
@@ -227,12 +231,12 @@ private fun TrashHeader(trash: TrashContents, selectedCount: Int, onRestore: () 
                 onClick = onRestore,
                 colors = ButtonDefaults.buttonColors(containerColor = RESTORE_GREEN),
                 modifier = Modifier.weight(1f),
-            ) { Text(if (selectedCount > 0) "Вернуть выбранные ($selectedCount)" else "Вернуть все") }
+            ) { Text(if (selectedCount > 0) "Вернуть ($selectedCount)" else "Вернуть все", maxLines = 1) }
             Button(
                 onClick = onPurge,
                 colors = ButtonDefaults.buttonColors(containerColor = DELETE_RED),
                 modifier = Modifier.weight(1f),
-            ) { Text(if (selectedCount > 0) "Удалить выбранные ($selectedCount)" else "Удалить все") }
+            ) { Text(if (selectedCount > 0) "Удалить ($selectedCount)" else "Удалить все", maxLines = 1) }
         }
     }
 }
@@ -284,6 +288,7 @@ private fun DetailsDialog(record: ActionRecord, readDetails: (ActionRecord) -> L
 }
 
 /** [checked] = null — строка журнала «Ранее», без галочки и без действий над файлом. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HistoryRow(
     record: ActionRecord,
@@ -302,7 +307,7 @@ private fun HistoryRow(
     Row(
         Modifier.fillMaxWidth()
             .clickable(enabled = content != null && present, onClick = onOpen)
-            .padding(start = if (checked != null) 4.dp else 16.dp, end = 16.dp, top = 8.dp),
+            .padding(start = if (checked != null) 4.dp else 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
     ) {
         if (checked != null) Checkbox(checked = checked, onCheckedChange = { onCheck() })
         Thumbnail(content.takeIf { present }, name = record.originalPath)
@@ -322,10 +327,11 @@ private fun HistoryRow(
                 Text("оригинал: ${displayPath(it)}", style = MaterialTheme.typography.bodySmall)
             }
             if (checked != null) {
-                Row {
-                    TextButton(onClick = { onRestore(record.id) }) { Text("Вернуть") }
-                    TextButton(onClick = onPurge) { Text("Удалить сейчас") }
-                    TextButton(onClick = onDetails) { Text("Сведения") }
+                // FlowRow переносит не влезшую кнопку на новую строку; в Row она сжималась в высокую пустую колонку.
+                FlowRow {
+                    TextButton(onClick = { onRestore(record.id) }, contentPadding = COMPACT) { Text("Вернуть") }
+                    TextButton(onClick = onPurge, contentPadding = COMPACT) { Text("Удалить сейчас") }
+                    TextButton(onClick = onDetails, contentPadding = COMPACT) { Text("Сведения") }
                 }
             }
         }
