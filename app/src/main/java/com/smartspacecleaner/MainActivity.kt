@@ -17,7 +17,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,9 +37,15 @@ import com.smartspacecleaner.core.report.CacheOutcome
 import com.smartspacecleaner.core.report.FileDetails
 import com.smartspacecleaner.data.FileFactsReader
 import com.smartspacecleaner.core.report.HistoryPreview
+import com.smartspacecleaner.core.help.HelpTexts
+import com.smartspacecleaner.ui.AppMenu
 import com.smartspacecleaner.ui.ExecutingScreen
+import com.smartspacecleaner.ui.FeedbackDialog
+import com.smartspacecleaner.ui.HintBanner
+import com.smartspacecleaner.ui.hint
 import com.smartspacecleaner.ui.HistoryScreen
 import com.smartspacecleaner.ui.MainViewModel
+import com.smartspacecleaner.ui.OnboardingScreen
 import com.smartspacecleaner.ui.PermissionScreen
 import com.smartspacecleaner.ui.PlanScreen
 import com.smartspacecleaner.ui.ReportScreen
@@ -71,39 +81,74 @@ class MainActivity : ComponentActivity() {
                         vm.consumeToast()
                     }
                 }
-                BackHandler(enabled = state.screen == Screen.Plan || state.screen == Screen.History) {
-                    if (state.screen == Screen.Plan) vm.backToSummary() else vm.closeHistory()
+                BackHandler(
+                    enabled = state.screen == Screen.Plan || state.screen == Screen.History ||
+                        (state.screen == Screen.Onboarding && state.onboardingReturnTo != null),
+                ) {
+                    when (state.screen) {
+                        Screen.Plan -> vm.backToSummary()
+                        Screen.History -> vm.closeHistory()
+                        else -> vm.finishOnboarding(Environment.isExternalStorageManager())
+                    }
                 }
 
                 Scaffold { padding ->
-                    Box(Modifier.padding(padding)) {
-                        when (state.screen) {
-                            Screen.Permission -> PermissionScreen(onGrant = ::openAllFilesAccessSettings)
-                            Screen.Scanning -> ScanningScreen(state.filesSeen)
-                            Screen.Summary -> SummaryScreen(state.summary!!, state.scanMillis, vm::showPlan, vm::openHistory)
-                            Screen.Plan -> PlanScreen(
-                                plan = state.plan!!,
-                                selected = state.selected,
-                                clearCache = state.clearCache,
-                                onToggleGroup = vm::toggleGroup,
-                                onToggleItem = vm::toggleItem,
-                                onToggleCache = vm::toggleCache,
-                                onOpenFile = ::openFile,
-                                onExecute = vm::execute,
-                            )
-                            Screen.Executing -> ExecutingScreen()
-                            Screen.Report -> ReportScreen(state.report!!, onHistory = vm::openHistory, onDone = vm::startScan)
-                            Screen.History -> HistoryScreen(
-                                records = state.history,
-                                onRestore = vm::restore,
-                                onPurge = vm::purgeNow,
-                                onRestoreMany = vm::restoreAll,
-                                onClearEarlier = vm::clearHistory,
-                                onOpen = ::openRecord,
-                                readDetails = ::readDetails,
-                                onBack = vm::closeHistory,
-                            )
+                    Column(Modifier.padding(padding)) {
+                        if (state.screen == Screen.Summary || state.screen == Screen.History) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                AppMenu(
+                                    feedbackEnabled = vm.feedbackEnabled,
+                                    onHowTo = vm::openOnboarding,
+                                    onFeedback = vm::openFeedback,
+                                    onResetHints = vm::resetHints,
+                                )
+                            }
                         }
+                        state.screen.hint()?.takeIf { it !in state.dismissedHints }?.let { id ->
+                            HintBanner(HelpTexts.banner(id)) { vm.dismissHint(id) }
+                        }
+                        Box(Modifier.weight(1f)) {
+                            when (state.screen) {
+                                Screen.Onboarding -> OnboardingScreen(
+                                    finishLabel = if (state.onboardingReturnTo != null) "Готово" else "Начать",
+                                    onFinish = { vm.finishOnboarding(Environment.isExternalStorageManager()) },
+                                )
+                                Screen.Permission -> PermissionScreen(onGrant = ::openAllFilesAccessSettings)
+                                Screen.Scanning -> ScanningScreen(state.filesSeen)
+                                Screen.Summary -> SummaryScreen(state.summary!!, state.scanMillis, vm::showPlan, vm::openHistory)
+                                Screen.Plan -> PlanScreen(
+                                    plan = state.plan!!,
+                                    selected = state.selected,
+                                    clearCache = state.clearCache,
+                                    onToggleGroup = vm::toggleGroup,
+                                    onToggleItem = vm::toggleItem,
+                                    onToggleCache = vm::toggleCache,
+                                    onOpenFile = ::openFile,
+                                    onExecute = vm::execute,
+                                )
+                                Screen.Executing -> ExecutingScreen()
+                                Screen.Report -> ReportScreen(state.report!!, onHistory = vm::openHistory, onDone = vm::startScan)
+                                Screen.History -> HistoryScreen(
+                                    records = state.history,
+                                    onRestore = vm::restore,
+                                    onPurge = vm::purgeNow,
+                                    onRestoreMany = vm::restoreAll,
+                                    onClearEarlier = vm::clearHistory,
+                                    onOpen = ::openRecord,
+                                    readDetails = ::readDetails,
+                                    onBack = vm::closeHistory,
+                                )
+                            }
+                        }
+                    }
+                    state.feedback?.let { source ->
+                        FeedbackDialog(
+                            source = source,
+                            initialName = state.feedbackName,
+                            onSend = vm::sendFeedback,
+                            onLater = vm::feedbackLater,
+                            onOptOut = vm::feedbackOptOut,
+                        )
                     }
                 }
             }

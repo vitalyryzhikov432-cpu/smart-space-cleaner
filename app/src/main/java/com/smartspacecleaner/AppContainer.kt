@@ -26,6 +26,8 @@ import com.smartspacecleaner.data.AndroidFileSystem
 import com.smartspacecleaner.data.AppDatabase
 import com.smartspacecleaner.data.RoomActionLogStore
 import com.smartspacecleaner.data.StorageInfo
+import com.smartspacecleaner.data.UiPrefs
+import com.smartspacecleaner.feedback.FeedbackSender
 
 /** Ручная сборка зависимостей. Стратегию дублей менять здесь. */
 class AppContainer(context: Context) {
@@ -39,6 +41,8 @@ class AppContainer(context: Context) {
     val fs = AndroidFileSystem(storageRoot)
     val log: ActionLogStore = RoomActionLogStore(db.actionRecords())
     val storageInfo = StorageInfo(context)
+    val prefs = UiPrefs(context)
+    val feedback = FeedbackSender(context)
     val duplicateStrategy = DuplicateStrategy.TRASH
 
     val scanner: Scanner

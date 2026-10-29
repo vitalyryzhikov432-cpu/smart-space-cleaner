@@ -7,6 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.smartspacecleaner.SmartSpaceApp
 import com.smartspacecleaner.core.action.ExecutionResult
 import com.smartspacecleaner.core.action.RestoreResult
+import com.smartspacecleaner.core.feedback.FeedbackCheck
+import com.smartspacecleaner.core.feedback.FeedbackDraft
+import com.smartspacecleaner.core.feedback.FeedbackPromptPolicy
+import com.smartspacecleaner.core.feedback.FeedbackSource
+import com.smartspacecleaner.core.feedback.FeedbackValidator
+import com.smartspacecleaner.core.help.HintId
 import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.model.Group
 import com.smartspacecleaner.core.model.Plan
@@ -26,7 +32,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-enum class Screen { Permission, Scanning, Summary, Plan, Executing, Report, History }
+enum class Screen { Onboarding, Permission, Scanning, Summary, Plan, Executing, Report, History }
 
 data class UiState(
     val screen: Screen = Screen.Permission,
@@ -41,22 +47,76 @@ data class UiState(
     val history: List<ActionRecord> = emptyList(),
     val historyReturnTo: Screen = Screen.Summary,
     val toast: String? = null,
+    val onboardingReturnTo: Screen? = null,
+    val dismissedHints: Set<HintId> = emptySet(),
+    val feedback: FeedbackSource? = null,
+    val feedbackName: String = "",
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val c = (app as SmartSpaceApp).container
-    private val _state = MutableStateFlow(UiState())
+    private val _state = MutableStateFlow(
+        UiState(
+            screen = if (c.prefs.onboardingDone) Screen.Permission else Screen.Onboarding,
+            dismissedHints = c.prefs.dismissedHints,
+            feedbackName = c.prefs.feedbackName,
+        ),
+    )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var freeBefore = 0L
     private var lastResult: ExecutionResult? = null
 
     fun onResume(hasAllFilesAccess: Boolean) {
+        // Пока человек читает онбординг, экран разрешения не перебивает его.
+        if (_state.value.screen == Screen.Onboarding) return
         if (!hasAllFilesAccess) {
             _state.update { it.copy(screen = Screen.Permission) }
         } else if (_state.value.screen == Screen.Permission) {
             startScan()
         }
+    }
+
+    fun openOnboarding() = _state.update { it.copy(onboardingReturnTo = it.screen, screen = Screen.Onboarding) }
+
+    fun finishOnboarding(hasAllFilesAccess: Boolean) {
+        c.prefs.onboardingDone = true
+        val back = _state.value.onboardingReturnTo
+        when {
+            back != null -> _state.update { it.copy(screen = back, onboardingReturnTo = null) }
+            hasAllFilesAccess -> startScan()
+            else -> _state.update { it.copy(screen = Screen.Permission) }
+        }
+    }
+
+    fun dismissHint(id: HintId) {
+        val hints = _state.value.dismissedHints + id
+        c.prefs.dismissedHints = hints
+        _state.update { it.copy(dismissedHints = hints) }
+    }
+
+    fun resetHints() {
+        c.prefs.dismissedHints = emptySet()
+        _state.update { it.copy(dismissedHints = emptySet(), toast = "Подсказки снова включены") }
+    }
+
+    val feedbackEnabled: Boolean get() = c.feedback.enabled
+
+    fun openFeedback() = _state.update { it.copy(feedback = FeedbackSource.MENU) }
+    fun feedbackLater() = _state.update { it.copy(feedback = null) }
+
+    fun feedbackOptOut() {
+        c.prefs.feedbackOptOut = true
+        _state.update { it.copy(feedback = null) }
+    }
+
+    fun sendFeedback(draft: FeedbackDraft) {
+        val feedback = (FeedbackValidator.check(draft) as? FeedbackCheck.Ok)?.feedback ?: return
+        val online = c.feedback.send(feedback, _state.value.feedback ?: FeedbackSource.MENU)
+        c.prefs.feedbackSent = true
+        c.prefs.feedbackName = feedback.name
+        val message = if (online) "Спасибо! Отзыв отправлен" else "Спасибо! Отправим, когда появится интернет"
+        _state.update { it.copy(feedback = null, feedbackName = feedback.name, toast = message) }
     }
 
     fun startScan() {
@@ -121,7 +181,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val report = withContext(Dispatchers.IO) {
             ReportBuilder.build(freeBefore, c.storageInfo.freeBytes(), plan, s.selected, outcome, result)
         }
-        _state.update { it.copy(screen = Screen.Report, report = report) }
+        val ask = c.feedback.enabled && FeedbackPromptPolicy.shouldPrompt(
+            cleanedSomething = FeedbackPromptPolicy.cleanedSomething(report),
+            alreadySent = c.prefs.feedbackSent,
+            optedOut = c.prefs.feedbackOptOut,
+        )
+        _state.update { it.copy(screen = Screen.Report, report = report, feedback = if (ask) FeedbackSource.AFTER_CLEANUP else null) }
     }
 
     fun openHistory() {
