@@ -7,6 +7,11 @@ import androidx.lifecycle.viewModelScope
 import com.smartspacecleaner.SmartSpaceApp
 import com.smartspacecleaner.core.action.ExecutionResult
 import com.smartspacecleaner.core.action.RestoreResult
+import com.smartspacecleaner.core.feedback.FeedbackCheck
+import com.smartspacecleaner.core.feedback.FeedbackDraft
+import com.smartspacecleaner.core.feedback.FeedbackPromptPolicy
+import com.smartspacecleaner.core.feedback.FeedbackSource
+import com.smartspacecleaner.core.feedback.FeedbackValidator
 import com.smartspacecleaner.core.help.HintId
 import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.model.Group
@@ -44,6 +49,8 @@ data class UiState(
     val toast: String? = null,
     val onboardingReturnTo: Screen? = null,
     val dismissedHints: Set<HintId> = emptySet(),
+    val feedback: FeedbackSource? = null,
+    val feedbackName: String = "",
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -52,6 +59,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         UiState(
             screen = if (c.prefs.onboardingDone) Screen.Permission else Screen.Onboarding,
             dismissedHints = c.prefs.dismissedHints,
+            feedbackName = c.prefs.feedbackName,
         ),
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
@@ -92,8 +100,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(dismissedHints = emptySet(), toast = "Подсказки снова включены") }
     }
 
-    val feedbackEnabled: Boolean get() = false
-    fun openFeedback() = Unit
+    val feedbackEnabled: Boolean get() = c.feedback.enabled
+
+    fun openFeedback() = _state.update { it.copy(feedback = FeedbackSource.MENU) }
+    fun feedbackLater() = _state.update { it.copy(feedback = null) }
+
+    fun feedbackOptOut() {
+        c.prefs.feedbackOptOut = true
+        _state.update { it.copy(feedback = null) }
+    }
+
+    fun sendFeedback(draft: FeedbackDraft) {
+        val feedback = (FeedbackValidator.check(draft) as? FeedbackCheck.Ok)?.feedback ?: return
+        val online = c.feedback.send(feedback, _state.value.feedback ?: FeedbackSource.MENU)
+        c.prefs.feedbackSent = true
+        c.prefs.feedbackName = feedback.name
+        val message = if (online) "Спасибо! Отзыв отправлен" else "Спасибо! Отправим, когда появится интернет"
+        _state.update { it.copy(feedback = null, feedbackName = feedback.name, toast = message) }
+    }
 
     fun startScan() {
         _state.update { it.copy(screen = Screen.Scanning, filesSeen = 0, report = null) }
@@ -157,7 +181,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val report = withContext(Dispatchers.IO) {
             ReportBuilder.build(freeBefore, c.storageInfo.freeBytes(), plan, s.selected, outcome, result)
         }
-        _state.update { it.copy(screen = Screen.Report, report = report) }
+        val ask = c.feedback.enabled && FeedbackPromptPolicy.shouldPrompt(
+            cleanedSomething = FeedbackPromptPolicy.cleanedSomething(report),
+            alreadySent = c.prefs.feedbackSent,
+            optedOut = c.prefs.feedbackOptOut,
+        )
+        _state.update { it.copy(screen = Screen.Report, report = report, feedback = if (ask) FeedbackSource.AFTER_CLEANUP else null) }
     }
 
     fun openHistory() {

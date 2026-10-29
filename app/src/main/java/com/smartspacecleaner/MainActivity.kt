@@ -40,6 +40,7 @@ import com.smartspacecleaner.core.report.HistoryPreview
 import com.smartspacecleaner.core.help.HelpTexts
 import com.smartspacecleaner.ui.AppMenu
 import com.smartspacecleaner.ui.ExecutingScreen
+import com.smartspacecleaner.ui.FeedbackDialog
 import com.smartspacecleaner.ui.HintBanner
 import com.smartspacecleaner.ui.hint
 import com.smartspacecleaner.ui.HistoryScreen
@@ -139,6 +140,15 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                    }
+                    state.feedback?.let { source ->
+                        FeedbackDialog(
+                            source = source,
+                            initialName = state.feedbackName,
+                            onSend = vm::sendFeedback,
+                            onLater = vm::feedbackLater,
+                            onOptOut = vm::feedbackOptOut,
+                        )
                     }
                 }
             }
