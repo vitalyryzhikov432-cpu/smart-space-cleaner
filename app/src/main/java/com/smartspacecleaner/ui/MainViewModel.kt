@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-enum class Screen { Permission, Scanning, Summary, Plan, Executing, Report, History }
+enum class Screen { Onboarding, Permission, Scanning, Summary, Plan, Executing, Report, History }
 
 data class UiState(
     val screen: Screen = Screen.Permission,
@@ -41,21 +41,38 @@ data class UiState(
     val history: List<ActionRecord> = emptyList(),
     val historyReturnTo: Screen = Screen.Summary,
     val toast: String? = null,
+    val onboardingReturnTo: Screen? = null,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val c = (app as SmartSpaceApp).container
-    private val _state = MutableStateFlow(UiState())
+    private val _state = MutableStateFlow(
+        UiState(screen = if (c.prefs.onboardingDone) Screen.Permission else Screen.Onboarding),
+    )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private var freeBefore = 0L
     private var lastResult: ExecutionResult? = null
 
     fun onResume(hasAllFilesAccess: Boolean) {
+        // Пока человек читает онбординг, экран разрешения не перебивает его.
+        if (_state.value.screen == Screen.Onboarding) return
         if (!hasAllFilesAccess) {
             _state.update { it.copy(screen = Screen.Permission) }
         } else if (_state.value.screen == Screen.Permission) {
             startScan()
+        }
+    }
+
+    fun openOnboarding() = _state.update { it.copy(onboardingReturnTo = it.screen, screen = Screen.Onboarding) }
+
+    fun finishOnboarding(hasAllFilesAccess: Boolean) {
+        c.prefs.onboardingDone = true
+        val back = _state.value.onboardingReturnTo
+        when {
+            back != null -> _state.update { it.copy(screen = back, onboardingReturnTo = null) }
+            hasAllFilesAccess -> startScan()
+            else -> _state.update { it.copy(screen = Screen.Permission) }
         }
     }
 

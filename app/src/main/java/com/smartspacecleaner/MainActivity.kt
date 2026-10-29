@@ -36,6 +36,7 @@ import com.smartspacecleaner.core.report.HistoryPreview
 import com.smartspacecleaner.ui.ExecutingScreen
 import com.smartspacecleaner.ui.HistoryScreen
 import com.smartspacecleaner.ui.MainViewModel
+import com.smartspacecleaner.ui.OnboardingScreen
 import com.smartspacecleaner.ui.PermissionScreen
 import com.smartspacecleaner.ui.PlanScreen
 import com.smartspacecleaner.ui.ReportScreen
@@ -71,13 +72,24 @@ class MainActivity : ComponentActivity() {
                         vm.consumeToast()
                     }
                 }
-                BackHandler(enabled = state.screen == Screen.Plan || state.screen == Screen.History) {
-                    if (state.screen == Screen.Plan) vm.backToSummary() else vm.closeHistory()
+                BackHandler(
+                    enabled = state.screen == Screen.Plan || state.screen == Screen.History ||
+                        (state.screen == Screen.Onboarding && state.onboardingReturnTo != null),
+                ) {
+                    when (state.screen) {
+                        Screen.Plan -> vm.backToSummary()
+                        Screen.History -> vm.closeHistory()
+                        else -> vm.finishOnboarding(Environment.isExternalStorageManager())
+                    }
                 }
 
                 Scaffold { padding ->
                     Box(Modifier.padding(padding)) {
                         when (state.screen) {
+                            Screen.Onboarding -> OnboardingScreen(
+                                finishLabel = if (state.onboardingReturnTo != null) "Готово" else "Начать",
+                                onFinish = { vm.finishOnboarding(Environment.isExternalStorageManager()) },
+                            )
                             Screen.Permission -> PermissionScreen(onGrant = ::openAllFilesAccessSettings)
                             Screen.Scanning -> ScanningScreen(state.filesSeen)
                             Screen.Summary -> SummaryScreen(state.summary!!, state.scanMillis, vm::showPlan, vm::openHistory)
