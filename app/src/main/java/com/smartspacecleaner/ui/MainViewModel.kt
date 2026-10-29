@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.smartspacecleaner.SmartSpaceApp
 import com.smartspacecleaner.core.action.ExecutionResult
 import com.smartspacecleaner.core.action.RestoreResult
+import com.smartspacecleaner.core.help.HintId
 import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.model.Group
 import com.smartspacecleaner.core.model.Plan
@@ -42,12 +43,16 @@ data class UiState(
     val historyReturnTo: Screen = Screen.Summary,
     val toast: String? = null,
     val onboardingReturnTo: Screen? = null,
+    val dismissedHints: Set<HintId> = emptySet(),
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val c = (app as SmartSpaceApp).container
     private val _state = MutableStateFlow(
-        UiState(screen = if (c.prefs.onboardingDone) Screen.Permission else Screen.Onboarding),
+        UiState(
+            screen = if (c.prefs.onboardingDone) Screen.Permission else Screen.Onboarding,
+            dismissedHints = c.prefs.dismissedHints,
+        ),
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
@@ -75,6 +80,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             else -> _state.update { it.copy(screen = Screen.Permission) }
         }
     }
+
+    fun dismissHint(id: HintId) {
+        val hints = _state.value.dismissedHints + id
+        c.prefs.dismissedHints = hints
+        _state.update { it.copy(dismissedHints = hints) }
+    }
+
+    fun resetHints() {
+        c.prefs.dismissedHints = emptySet()
+        _state.update { it.copy(dismissedHints = emptySet(), toast = "Подсказки снова включены") }
+    }
+
+    val feedbackEnabled: Boolean get() = false
+    fun openFeedback() = Unit
 
     fun startScan() {
         _state.update { it.copy(screen = Screen.Scanning, filesSeen = 0, report = null) }

@@ -44,6 +44,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.smartspacecleaner.core.help.InfoTopic
 import com.smartspacecleaner.core.model.Group
 import com.smartspacecleaner.core.model.GroupCheck
 import com.smartspacecleaner.core.model.GroupKind
@@ -207,7 +208,10 @@ private fun LevelHeader(level: RiskLevel) {
         RiskLevel.EXACT -> "Уровень 1 · Точные дубли и установщики"
         RiskLevel.PERSONAL -> "Уровень 2 · Личное — решаете поштучно"
     }
-    Text(text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp))
+    Row(Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = MaterialTheme.typography.titleSmall)
+        InfoIcon(InfoTopic.RISK_LEVELS)
+    }
 }
 
 @Composable
@@ -224,7 +228,14 @@ private fun GroupCard(group: Group, check: GroupCheck, expanded: Boolean, onTogg
             )
             Column(Modifier.weight(1f)) {
                 val title = if (group.kind == GroupKind.APP_CACHE) group.title else "${group.title} — ${formatBytes(group.totalBytes)}"
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false))
+                    when (group.kind) {
+                        GroupKind.DUPLICATES -> InfoIcon(InfoTopic.DUPLICATES)
+                        GroupKind.APP_CACHE -> InfoIcon(InfoTopic.APP_CACHE)
+                        else -> Unit
+                    }
+                }
                 Text("Удалится: ${group.willRemove}", style = MaterialTheme.typography.bodySmall)
                 Text("Останется: ${group.willKeep}", style = MaterialTheme.typography.bodySmall)
                 Text("Почему: ${group.why}", style = MaterialTheme.typography.bodySmall)
