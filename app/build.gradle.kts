@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -15,9 +16,29 @@ android {
         applicationId = "com.smartspacecleaner"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Ключ подписи хранится вне репозитория; путь к его настройкам можно переопределить
+    // свойством -PkeystoreProps=... . Без файла релиз собирается неподписанным.
+    val keystoreProps = file(providers.gradleProperty("keystoreProps").getOrElse("C:/keys/keystore.properties"))
+    val releaseSigning = if (keystoreProps.exists()) {
+        val props = Properties().apply { keystoreProps.inputStream().use { load(it) } }
+        signingConfigs.create("release") {
+            storeFile = file(props.getProperty("storeFile"))
+            storePassword = props.getProperty("storePassword")
+            keyAlias = props.getProperty("keyAlias")
+            keyPassword = props.getProperty("keyPassword")
+        }
+    } else null
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            signingConfig = releaseSigning
+        }
     }
 
     buildFeatures { compose = true }
