@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.smartspacecleaner.core.feedback.FeedbackCheck
 import com.smartspacecleaner.core.feedback.FeedbackDraft
 import com.smartspacecleaner.core.feedback.FeedbackSource
@@ -48,6 +49,8 @@ fun FeedbackDialog(
 
     AlertDialog(
         onDismissRequest = onLater,
+        // Случайное касание вне окна или «Назад» не должны стирать набранный текст — закрыть можно только кнопками.
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
         title = { Text("Помогите улучшить приложение") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
