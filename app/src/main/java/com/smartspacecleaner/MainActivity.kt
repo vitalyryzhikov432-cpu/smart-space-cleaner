@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 BackHandler(
-                    enabled = state.screen in setOf(Screen.Plan, Screen.History, Screen.SortSources, Screen.SortAnalyzing, Screen.SortPlan, Screen.SortResult) ||
+                    enabled = state.screen in setOf(Screen.Plan, Screen.History, Screen.SortSources, Screen.SortAnalyzing, Screen.SortPlan, Screen.SortMoving, Screen.SortResult) ||
                         (state.screen == Screen.Onboarding && state.onboardingReturnTo != null),
                 ) {
                     when (state.screen) {
@@ -96,6 +96,8 @@ class MainActivity : ComponentActivity() {
                         Screen.History -> vm.closeHistory()
                         Screen.SortAnalyzing -> vm.cancelSortAnalysis()
                         Screen.SortPlan -> vm.backToSortSources()
+                        // Перенос нельзя бросить на середине: «Назад» на этом экране ничего не делает.
+                        Screen.SortMoving -> {}
                         Screen.SortResult -> vm.closeSort()
                         else -> vm.finishOnboarding(Environment.isExternalStorageManager())
                     }

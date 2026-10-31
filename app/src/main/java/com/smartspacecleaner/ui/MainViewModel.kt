@@ -331,8 +331,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** «Назад» из плана: к списку папок с прежними галочками, без нового поиска. */
-    fun backToSortSources() = _state.update { it.copy(screen = Screen.SortSources) }
+    /**
+     * «Назад» из плана: к списку папок с прежними галочками, без нового поиска.
+     * Если перенос в этом заходе уже был, список папок устарел — возвращаемся к итогу, откуда выход через [closeSort].
+     */
+    fun backToSortSources() = _state.update {
+        it.copy(screen = if (it.sortResult != null) Screen.SortResult else Screen.SortSources)
+    }
 
     /** «Разобрать оставшиеся»: план только из «Проверьте». */
     fun reviewSortLeftovers() = _state.update {
