@@ -75,6 +75,24 @@ class SortRestorerTest {
     }
 
     @Test
+    fun `failed move back keeps the record so it can be retried`() {
+        sort("s1", "DCIM/Camera/a.jpg" to SortCategory.NATURE)
+        val movedTo = p("Pictures/Сортировка/Природа/a.jpg")
+        fs.failingPaths += movedTo
+
+        val first = restorer.restoreSession("s1")
+
+        assertEquals(0, first.restored)
+        assertEquals(1, first.skipped)
+        assertEquals(ActionStatus.DONE, log.all().single().status)
+        assertTrue(fs.exists(movedTo))
+
+        fs.failingPaths.clear()
+        assertEquals(1, restorer.restoreSession("s1").restored)
+        assertTrue(fs.exists(p("DCIM/Camera/a.jpg")))
+    }
+
+    @Test
     fun `only the chosen session is restored`() {
         sort("s1", "DCIM/Camera/a.jpg" to SortCategory.NATURE)
         sort("s2", "DCIM/Camera/b.jpg" to SortCategory.FOOD)

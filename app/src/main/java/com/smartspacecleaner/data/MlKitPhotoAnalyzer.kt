@@ -2,6 +2,7 @@ package com.smartspacecleaner.data
 
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
+import android.util.Log
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
@@ -43,6 +44,7 @@ class MlKitPhotoAnalyzer : PhotoAnalyzer {
                 ),
             )
         } catch (e: Exception) {
+            Log.w(TAG, "analyze failed: $path", e)
             Analysis.Unreadable
         } finally {
             bitmap.recycle()
@@ -65,6 +67,7 @@ class MlKitPhotoAnalyzer : PhotoAnalyzer {
     }
 
     private companion object {
+        const val TAG = "MlKitPhotoAnalyzer"
         const val MAX_SIDE = 640
     }
 }

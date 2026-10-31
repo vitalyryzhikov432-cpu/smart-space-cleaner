@@ -291,9 +291,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startSortAnalysis(quick: Boolean) {
         val s = _state.value
+        if (s.screen != Screen.SortSources) return
         val files = s.sortSources.orEmpty().filter { it.path in s.sortPicked }.flatMap { it.files }
         if (files.isEmpty()) return
         _state.update { it.copy(screen = Screen.SortAnalyzing, sortDone = 0, sortTotal = files.size, sortQuickConfirm = false) }
+        sortJob?.cancel()
         sortJob = viewModelScope.launch {
             val plan = withContext(Dispatchers.IO) {
                 c.sortAnalysis.run(files, onProgress = { n -> _state.update { it.copy(sortDone = n) } }, shouldStop = { !isActive })
@@ -331,6 +333,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun moveSorted() {
         val s = _state.value
+        if (s.screen == Screen.SortMoving) return
         val plan = s.sortPlan ?: return
         val moves = plan.moves(s.sortSelected)
         if (moves.isEmpty()) return
@@ -342,7 +345,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             scanMedia(result.touchedPaths)
             val rest = plan.without(result.moved.map { it.originalPath }.toSet())
             val folders = result.moved.map { it.groupTitle }.distinct().size
-            val text = SortTexts.result(result.moved.size, folders, rest.items.size, result.failed.size)
+            // Неудавшиеся остаются в rest, но в тексте они уже посчитаны отдельно.
+            val left = rest.items.size - result.failed.size
+            val text = SortTexts.result(result.moved.size, folders, left, result.failed.size)
             _state.update { it.copy(screen = Screen.SortResult, sortPlan = rest, sortResult = text) }
         }
     }
