@@ -242,11 +242,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Сессии сортировки, которые возвращаются прямо сейчас: второй запуск той же сессии не нужен. */
+    private val restoringSorts = mutableSetOf<String>()
+
     fun restoreSort(sessionId: String) {
+        if (!restoringSorts.add(sessionId)) return
         viewModelScope.launch {
-            val result = withContext(Dispatchers.IO) { c.sortRestorer.restoreSession(sessionId) }
-            scanMedia(result.touchedPaths)
-            _state.update { it.copy(history = loadHistory(), toast = SortTexts.restored(result)) }
+            try {
+                val result = withContext(Dispatchers.IO) { c.sortRestorer.restoreSession(sessionId) }
+                scanMedia(result.touchedPaths)
+                _state.update { it.copy(history = loadHistory(), toast = SortTexts.restored(result)) }
+            } finally {
+                restoringSorts.remove(sessionId)
+            }
         }
     }
 

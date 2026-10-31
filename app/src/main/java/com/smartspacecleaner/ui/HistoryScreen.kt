@@ -317,7 +317,6 @@ private fun DetailsDialog(record: ActionRecord, readDetails: (ActionRecord) -> L
     )
 }
 
-/** [checked] = null — строка журнала «Ранее», без галочки и без действий над файлом. */
 @Composable
 private fun SortSessionRow(session: SortSession, onRestore: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -338,6 +337,7 @@ private fun SortSessionRow(session: SortSession, onRestore: () -> Unit) {
     }
 }
 
+/** [checked] = null — строка журнала «Ранее», без галочки и без действий над файлом. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HistoryRow(
