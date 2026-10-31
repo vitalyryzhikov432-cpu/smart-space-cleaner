@@ -103,7 +103,7 @@ class PhotoClassifierTest {
 
     @Test
     fun `two labels of the same category do not compete`() {
-        assertEquals(SortCategory.NATURE, classify(camera, labels("Sky" to 0.9f, "Tree" to 0.88f)).category)
+        assertEquals(SortCategory.NATURE, classify(camera, labels("Sky" to 0.9f, "Mountain" to 0.88f)).category)
     }
 
     @Test

@@ -16,8 +16,8 @@ android {
         applicationId = "com.smartspacecleaner"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -68,6 +68,10 @@ dependencies {
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
     implementation(libs.work.runtime.ktx)
+    // Модели встроены в APK: анализ работает без интернета и без Google Play Services.
+    implementation(libs.mlkit.image.labeling)
+    implementation(libs.mlkit.text.recognition)
+    implementation(libs.mlkit.face.detection)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.runner)
 }
