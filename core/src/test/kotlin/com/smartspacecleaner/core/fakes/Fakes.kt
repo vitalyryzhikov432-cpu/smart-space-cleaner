@@ -8,6 +8,9 @@ import com.smartspacecleaner.core.port.ApkInspector
 import com.smartspacecleaner.core.port.ApkStatus
 import com.smartspacecleaner.core.port.Clock
 import com.smartspacecleaner.core.port.FileSystem
+import com.smartspacecleaner.core.sort.Analysis
+import com.smartspacecleaner.core.sort.PhotoAnalyzer
+import com.smartspacecleaner.core.sort.PhotoSignals
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -118,4 +121,14 @@ class InMemoryActionLogStore : ActionLogStore {
 
 class FakeApkInspector(private val statuses: Map<String, ApkStatus> = emptyMap()) : ApkInspector {
     override fun inspect(path: String) = statuses[path] ?: ApkStatus.UNREADABLE
+}
+
+/** Возвращает заданные сигналы; для остальных путей — «ничего не найдено». Запоминает, какие пути спрашивали. */
+class FakePhotoAnalyzer(private val results: Map<String, Analysis> = emptyMap()) : PhotoAnalyzer {
+    val asked = mutableListOf<String>()
+
+    override fun analyze(path: String): Analysis {
+        asked += path
+        return results[path] ?: Analysis.Ok(PhotoSignals())
+    }
 }
