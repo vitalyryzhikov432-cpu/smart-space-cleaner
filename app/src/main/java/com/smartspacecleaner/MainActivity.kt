@@ -144,6 +144,7 @@ class MainActivity : ComponentActivity() {
                                     onRestore = vm::restore,
                                     onPurge = vm::purgeNow,
                                     onRestoreMany = vm::restoreAll,
+                                    onRestoreSort = vm::restoreSort,
                                     onClearEarlier = vm::clearHistory,
                                     onOpen = ::openRecord,
                                     readDetails = ::readDetails,

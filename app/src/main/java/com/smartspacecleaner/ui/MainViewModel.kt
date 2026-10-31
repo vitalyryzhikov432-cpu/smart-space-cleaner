@@ -242,6 +242,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun restoreSort(sessionId: String) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) { c.sortRestorer.restoreSession(sessionId) }
+            scanMedia(result.touchedPaths)
+            _state.update { it.copy(history = loadHistory(), toast = SortTexts.restored(result)) }
+        }
+    }
+
     fun clearHistory() {
         viewModelScope.launch {
             val cleared = withContext(Dispatchers.IO) { c.historyCleaner.clearEarlier() }
