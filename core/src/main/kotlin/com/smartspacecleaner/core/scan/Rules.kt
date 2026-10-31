@@ -4,6 +4,7 @@ import com.smartspacecleaner.core.model.FileEntry
 import com.smartspacecleaner.core.port.ApkInspector
 import com.smartspacecleaner.core.port.ApkStatus
 import com.smartspacecleaner.core.port.Clock
+import com.smartspacecleaner.core.sort.SortCategory
 import java.time.Duration
 
 class ApkRule(private val inspector: ApkInspector) {
@@ -25,7 +26,10 @@ class OldScreenshotRule(
     fun find(entries: List<FileEntry>): List<FileEntry> {
         val cutoff = clock.now().minus(Duration.ofDays(maxAgeDays))
         return entries.filter {
-            (layout.isUnder(it.path, "DCIM/Screenshots") || layout.isUnder(it.path, "Pictures/Screenshots")) &&
+            (
+                layout.isUnder(it.path, "DCIM/Screenshots") || layout.isUnder(it.path, "Pictures/Screenshots") ||
+                    layout.isUnder(it.path, SortCategory.SCREENSHOTS.relativeFolder)
+                ) &&
                 it.modifiedAt.isBefore(cutoff)
         }
     }
