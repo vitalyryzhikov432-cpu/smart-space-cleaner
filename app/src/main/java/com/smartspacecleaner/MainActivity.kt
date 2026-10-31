@@ -35,6 +35,7 @@ import com.smartspacecleaner.core.model.ActionRecord
 import com.smartspacecleaner.core.model.ActionStatus
 import com.smartspacecleaner.core.report.CacheOutcome
 import com.smartspacecleaner.core.report.FileDetails
+import com.smartspacecleaner.core.sort.SortTexts
 import com.smartspacecleaner.data.FileFactsReader
 import com.smartspacecleaner.core.report.HistoryPreview
 import com.smartspacecleaner.core.help.HelpTexts
@@ -51,6 +52,11 @@ import com.smartspacecleaner.ui.PlanScreen
 import com.smartspacecleaner.ui.ReportScreen
 import com.smartspacecleaner.ui.ScanningScreen
 import com.smartspacecleaner.ui.Screen
+import com.smartspacecleaner.ui.SortAnalyzingScreen
+import com.smartspacecleaner.ui.SortMovingScreen
+import com.smartspacecleaner.ui.SortPlanScreen
+import com.smartspacecleaner.ui.SortResultScreen
+import com.smartspacecleaner.ui.SortSourcesScreen
 import com.smartspacecleaner.ui.SummaryScreen
 import java.io.File
 import java.time.ZoneId
@@ -82,12 +88,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 BackHandler(
-                    enabled = state.screen == Screen.Plan || state.screen == Screen.History ||
+                    enabled = state.screen in setOf(Screen.Plan, Screen.History, Screen.SortSources, Screen.SortAnalyzing, Screen.SortPlan, Screen.SortResult) ||
                         (state.screen == Screen.Onboarding && state.onboardingReturnTo != null),
                 ) {
                     when (state.screen) {
-                        Screen.Plan -> vm.backToSummary()
+                        Screen.Plan, Screen.SortSources -> vm.backToSummary()
                         Screen.History -> vm.closeHistory()
+                        Screen.SortAnalyzing -> vm.cancelSortAnalysis()
+                        Screen.SortPlan -> vm.backToSortSources()
+                        Screen.SortResult -> vm.closeSort()
                         else -> vm.finishOnboarding(Environment.isExternalStorageManager())
                     }
                 }
@@ -115,7 +124,7 @@ class MainActivity : ComponentActivity() {
                                 )
                                 Screen.Permission -> PermissionScreen(onGrant = ::openAllFilesAccessSettings)
                                 Screen.Scanning -> ScanningScreen(state.filesSeen)
-                                Screen.Summary -> SummaryScreen(state.summary!!, state.scanMillis, vm::showPlan, vm::openHistory)
+                                Screen.Summary -> SummaryScreen(state.summary!!, state.scanMillis, vm::showPlan, vm::openHistory, vm::openSortSources)
                                 Screen.Plan -> PlanScreen(
                                     plan = state.plan!!,
                                     selected = state.selected,
@@ -137,6 +146,39 @@ class MainActivity : ComponentActivity() {
                                     onOpen = ::openRecord,
                                     readDetails = ::readDetails,
                                     onBack = vm::closeHistory,
+                                )
+                                Screen.SortSources -> SortSourcesScreen(
+                                    sources = state.sortSources,
+                                    picked = state.sortPicked,
+                                    onToggle = vm::toggleSortSource,
+                                    onAnalyze = { vm.startSortAnalysis(quick = false) },
+                                    onQuick = { vm.startSortAnalysis(quick = true) },
+                                    onBack = vm::backToSummary,
+                                )
+                                Screen.SortAnalyzing -> SortAnalyzingScreen(
+                                    done = state.sortDone,
+                                    total = state.sortTotal,
+                                    quickText = state.sortPlan?.takeIf { state.sortQuickConfirm }?.let { SortTexts.quickConfirm(it) },
+                                    onCancel = vm::cancelSortAnalysis,
+                                    onQuickMove = vm::moveSorted,
+                                    onQuickReview = vm::reviewSortPlan,
+                                )
+                                Screen.SortPlan -> SortPlanScreen(
+                                    plan = state.sortPlan!!,
+                                    selected = state.sortSelected,
+                                    onToggle = vm::toggleSortItem,
+                                    onToggleSection = vm::toggleSortSection,
+                                    onReassign = vm::reassignSort,
+                                    onOpenFile = ::openFile,
+                                    onMove = vm::moveSorted,
+                                    onBack = vm::backToSortSources,
+                                )
+                                Screen.SortMoving -> SortMovingScreen(state.sortDone, state.sortTotal)
+                                Screen.SortResult -> SortResultScreen(
+                                    text = state.sortResult.orEmpty(),
+                                    canReview = state.sortPlan?.reviewOnly()?.items?.isNotEmpty() == true,
+                                    onReview = vm::reviewSortLeftovers,
+                                    onDone = vm::closeSort,
                                 )
                             }
                         }

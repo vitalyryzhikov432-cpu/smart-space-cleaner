@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.smartspacecleaner.core.help.InfoTopic
 import com.smartspacecleaner.core.model.Group
@@ -270,11 +271,11 @@ private fun ItemRow(item: PlannedItem, checked: Boolean, onToggle: () -> Unit, o
 
 /** [path] — откуда читать содержимое, [name] — имя, по расширению которого выбирается вид превью. */
 @Composable
-internal fun Thumbnail(path: String?, name: String = path.orEmpty()) {
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, path, name) {
-        value = path?.let { withContext(Dispatchers.IO) { loadThumbnail(it, name) } }
+internal fun Thumbnail(path: String?, name: String = path.orEmpty(), size: Dp = 48.dp, px: Int = THUMB_PX) {
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, path, name, px) {
+        value = path?.let { withContext(Dispatchers.IO) { loadThumbnail(it, name, px) } }
     }
-    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         val image = bitmap
         if (image != null) {
             Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -295,11 +296,11 @@ internal fun Thumbnail(path: String?, name: String = path.orEmpty()) {
     }
 }
 
-private const val THUMB_PX = 128
+internal const val THUMB_PX = 128
 
-private fun loadThumbnail(path: String, name: String): ImageBitmap? = try {
+private fun loadThumbnail(path: String, name: String, px: Int): ImageBitmap? = try {
     val file = File(path)
-    val size = Size(THUMB_PX, THUMB_PX)
+    val size = Size(px, px)
     when (previewKind(name)) {
         PreviewKind.IMAGE -> ThumbnailUtils.createImageThumbnail(file, size, null)
         PreviewKind.VIDEO -> ThumbnailUtils.createVideoThumbnail(file, size, null)
