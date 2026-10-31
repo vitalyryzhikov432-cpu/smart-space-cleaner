@@ -77,6 +77,26 @@ class PhotoClassifierTest {
     }
 
     @Test
+    fun `percent is truncated so a value under the threshold never shows as 75`() {
+        val weak = classify(camera, labels("Sky" to 0.7496f))
+        assertNull(weak.category)
+        assertEquals("похоже на «Природа», 74 %", weak.reason)
+    }
+
+    @Test
+    fun `a sure animal beats nature when they are close`() {
+        val decision = classify(camera, labels("Cat" to 0.80f, "Sky" to 0.85f))
+        assertEquals(SortCategory.ANIMALS, decision.category)
+        assertEquals("метка Cat, 80 %", decision.reason)
+        assertEquals(SortCategory.ANIMALS, classify(camera, labels("Cat" to 0.85f, "Sky" to 0.80f)).category)
+    }
+
+    @Test
+    fun `a weak animal close to nature still goes to review`() {
+        assertNull(classify(camera, labels("Cat" to 0.70f, "Sky" to 0.72f)).category)
+    }
+
+    @Test
     fun `content wins over the messenger folder`() {
         assertEquals(SortCategory.ANIMALS, classify(telegram, labels("Dog" to 0.92f)).category)
     }

@@ -2,7 +2,6 @@ package com.smartspacecleaner.core.sort
 
 import com.smartspacecleaner.core.scan.StorageLayout
 import com.smartspacecleaner.core.text.plural
-import kotlin.math.roundToInt
 
 /** Решает, в какую папку положить файл. Правила идут сверху вниз, побеждает первое сработавшее. */
 class PhotoClassifier(private val layout: StorageLayout, private val analyzer: PhotoAnalyzer) {
@@ -32,6 +31,9 @@ class PhotoClassifier(private val layout: StorageLayout, private val analyzer: P
             val (category, label) = top
             val rival = ranked.getOrNull(1)?.takeIf { label.confidence - it.second.confidence < GAP }
             return when {
+                // Животное почти всегда снято на природе, поэтому уверенное животное побеждает природу.
+                rival != null && animalOverNature(ranked[0], ranked[1]) != null ->
+                    animalOverNature(ranked[0], ranked[1])!!
                 rival != null -> SortDecision(null, "«${category.title}» или «${rival.first.title}» — не уверен")
                 label.confidence >= SURE -> SortDecision(category, "метка ${label.name}, ${percent(label.confidence)}")
                 else -> SortDecision(null, "похоже на «${category.title}», ${percent(label.confidence)}")
@@ -44,7 +46,14 @@ class PhotoClassifier(private val layout: StorageLayout, private val analyzer: P
         return SortDecision(SortCategory.OTHER, "ничего не распознано")
     }
 
-    private fun percent(confidence: Float) = "${(confidence * 100).roundToInt()} %"
+    private fun animalOverNature(a: Pair<SortCategory, Label>, b: Pair<SortCategory, Label>): SortDecision? {
+        val animal = listOf(a, b).singleOrNull { it.first == SortCategory.ANIMALS } ?: return null
+        if (listOf(a, b).none { it.first == SortCategory.NATURE } || animal.second.confidence < SURE) return null
+        return SortDecision(animal.first, "метка ${animal.second.name}, ${percent(animal.second.confidence)}")
+    }
+
+    /** Отбрасываем дробную часть: 74,96 % не должно выглядеть как «75 %» ниже порога. */
+    private fun percent(confidence: Float) = "${(confidence * 100).toInt()} %"
 
     companion object {
         // Стартовые пороги из спецификации; подстраиваются по реальным фото после первой установки.

@@ -18,6 +18,14 @@ class SortTextsTest {
     }
 
     @Test
+    fun `folder line shortens messenger media paths`() {
+        val wa = SourceFolder(p("Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video Notes/202503"), listOf(entry("a.jpg", 2_000_000)))
+        assertEquals("WhatsApp/WhatsApp Video Notes/202503 — 1 фото · 2 МБ", SortTexts.folderLine(wa))
+        val tg = SourceFolder(p("Android/media/org.telegram.messenger/Telegram/Telegram Images"), listOf(entry("a.jpg", 2_000_000)))
+        assertEquals("Telegram/Telegram Images — 1 фото · 2 МБ", SortTexts.folderLine(tg))
+    }
+
+    @Test
     fun `section titles name the target folder`() {
         assertEquals(
             "Природа — 2 фото · 3 МБ → Pictures/Сортировка/Природа",

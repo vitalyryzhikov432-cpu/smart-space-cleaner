@@ -11,12 +11,19 @@ object SortTexts {
 
     private fun files(n: Int) = "$n ${plural(n, "файл", "файла", "файлов")}"
 
+    /** Длинные пути медиа мессенджеров сокращаем, чтобы строка помещалась. */
+    private fun shortPath(path: String): String = when {
+        path.startsWith("Android/media/com.whatsapp/WhatsApp/Media/") -> "WhatsApp/" + path.removePrefix("Android/media/com.whatsapp/WhatsApp/Media/")
+        path.startsWith("Android/media/org.telegram.messenger/Telegram/") -> "Telegram/" + path.removePrefix("Android/media/org.telegram.messenger/Telegram/")
+        else -> path
+    }
+
     fun folderLine(f: SourceFolder): String {
         val counts = buildList {
             if (f.photos > 0) add("${f.photos} фото")
             if (f.videos > 0) add("${f.videos} видео")
         }
-        return "${displayPath(f.path)} — ${counts.joinToString(", ")} · ${formatBytes(f.bytes)}"
+        return "${shortPath(displayPath(f.path))} — ${counts.joinToString(", ")} · ${formatBytes(f.bytes)}"
     }
 
     fun sectionTitle(s: SortSection): String {

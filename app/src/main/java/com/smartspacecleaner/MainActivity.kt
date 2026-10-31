@@ -253,7 +253,9 @@ class MainActivity : ComponentActivity() {
                 MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
                 MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
                 MediaStore.Files.FileColumns.MEDIA_TYPE_AUDIO -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
-                else -> MediaStore.Files.getContentUri("external")
+                // Папки с .nomedia (WhatsApp Sent/Private) индексируются как MEDIA_TYPE_NONE: внешняя
+                // программа не читает такой Files-URI и ничего не показывает, поэтому берём FileProvider.
+                else -> return@use null
             }
             ContentUris.withAppendedId(base, id)
         }

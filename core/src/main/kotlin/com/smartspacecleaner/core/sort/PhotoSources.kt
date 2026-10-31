@@ -15,7 +15,8 @@ class PhotoSources(private val fs: FileSystem, private val layout: StorageLayout
     /** Папки с фото и видео, самые тяжёлые сверху. Уже разложенное и служебное не показываем. */
     fun list(): List<SourceFolder> =
         fs.walk(layout.root, layout.excludedPrefixes + layout.sortRoot)
-            .filter { SortMedia.isSortable(it.path) && !layout.isHidden(it.path) }
+            // Пустые файлы — заглушки облачной галереи MIUI, их не прочитать.
+            .filter { SortMedia.isSortable(it.path) && it.size > 0L && !layout.isHidden(it.path) }
             .groupBy { it.path.substringBeforeLast('/') }
             .map { (dir, files) -> SourceFolder(dir, files) }
             .sortedByDescending { it.bytes }

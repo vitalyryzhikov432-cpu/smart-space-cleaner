@@ -53,4 +53,16 @@ class PhotoSourcesTest {
 
         assertEquals(emptyList<SourceFolder>(), sources.list())
     }
+
+    @Test
+    fun `empty placeholder files are not offered`() {
+        fs.add(p("Pictures/Gallery/owner/sale/a.jpg"), bytes(0, 1))
+        fs.add(p("DCIM/Camera/empty.jpg"), bytes(0, 2))
+        fs.add(p("DCIM/Camera/real.jpg"), bytes(10, 3))
+
+        val list = sources.list()
+
+        assertEquals(listOf(p("DCIM/Camera")), list.map { it.path })
+        assertEquals(1, list.single().photos)
+    }
 }
