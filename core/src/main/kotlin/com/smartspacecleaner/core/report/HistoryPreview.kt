@@ -10,7 +10,11 @@ object HistoryPreview {
     /** Путь к содержимому файла сейчас; null — смотреть уже нечего. */
     fun contentPath(r: ActionRecord): String? = when (r.status) {
         // В корзине файл лежит под служебным именем без расширения.
-        ActionStatus.DONE -> if (r.kind == ActionKind.TRASH) r.trashPath else r.keptOriginalPath
+        ActionStatus.DONE -> when (r.kind) {
+            ActionKind.TRASH -> r.trashPath
+            ActionKind.SORT_MOVE -> r.movedToPath
+            ActionKind.DELETE_DUPLICATE, ActionKind.DELETE_APK -> r.keptOriginalPath
+        }
         ActionStatus.RESTORED, ActionStatus.FAILED, ActionStatus.PENDING -> r.originalPath
         // Удалённый дубль: у оставленного оригинала то же содержимое.
         ActionStatus.PURGED -> r.keptOriginalPath

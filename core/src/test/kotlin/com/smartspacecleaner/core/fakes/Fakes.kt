@@ -28,6 +28,8 @@ class FakeFileSystem(var free: Long = 10L * 1024 * 1024 * 1024) : FileSystem {
     val failingPaths = mutableSetOf<String>()
     /** openRead для этих путей бросает IOException. */
     val unreadablePaths = mutableSetOf<String>()
+    /** Папки, удалённые через deleteEmptyDir, по порядку. */
+    val deletedDirs = mutableListOf<String>()
 
     fun add(path: String, content: ByteArray, modifiedAt: Instant = T0) {
         files[path] = FakeFile(content, modifiedAt)
@@ -69,6 +71,12 @@ class FakeFileSystem(var free: Long = 10L * 1024 * 1024 * 1024) : FileSystem {
     override fun delete(path: String): Boolean {
         if (path in failingPaths) return false
         return files.remove(path) != null
+    }
+
+    override fun deleteEmptyDir(path: String): Boolean {
+        if (files.keys.any { it.startsWith("$path/") }) return false
+        deletedDirs += path
+        return true
     }
 
     override fun mkdirs(path: String) = true

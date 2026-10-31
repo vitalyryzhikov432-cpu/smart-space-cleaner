@@ -34,7 +34,9 @@ class AppContainer(context: Context) {
     @Suppress("DEPRECATION")
     private val storageRoot = Environment.getExternalStorageDirectory()
     private val clock = WallClock
-    private val db = Room.databaseBuilder(context, AppDatabase::class.java, "smart-space.db").build()
+    private val db = Room.databaseBuilder(context, AppDatabase::class.java, "smart-space.db")
+        .addMigrations(AppDatabase.MIGRATION_1_2)
+        .build()
     private val hasher: Hasher
 
     val layout = StorageLayout(storageRoot.path)

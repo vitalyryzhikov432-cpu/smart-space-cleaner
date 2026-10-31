@@ -33,6 +33,7 @@ class Restorer(
         return when (r.kind) {
             ActionKind.TRASH -> fromTrash(r)
             ActionKind.DELETE_DUPLICATE -> fromOriginal(r)
+            ActionKind.SORT_MOVE -> RestoreResult.Failed("разложенные файлы возвращаются все сразу: «Вернуть всё на место» в Истории")
             ActionKind.DELETE_APK -> RestoreResult.Failed("установщик удалён окончательно — при необходимости скачайте его заново")
         }
     }
@@ -40,7 +41,7 @@ class Restorer(
     private fun fromTrash(r: ActionRecord): RestoreResult {
         val trash = r.trashPath ?: return RestoreResult.Failed("в записи нет пути корзины")
         if (!fs.exists(trash)) return RestoreResult.Failed("файл уже удалён из корзины окончательно")
-        val target = freeTarget(r.originalPath)
+        val target = restoreTarget(r.originalPath)
         fs.mkdirs(target.substringBeforeLast('/'))
         if (!fs.move(trash, target)) return RestoreResult.Failed("не удалось вернуть файл: нет доступа")
         return markRestored(r, target)
@@ -51,7 +52,7 @@ class Restorer(
         if (!fs.exists(kept)) return RestoreResult.Failed("оригинал больше не существует — копию вернуть нельзя")
         if (hashOrNull(kept) != r.sha256) return RestoreResult.Failed("оригинал изменился — точную копию вернуть нельзя")
         if (fs.freeBytes() < r.size) return RestoreResult.Failed("недостаточно места для восстановления")
-        val target = freeTarget(r.originalPath)
+        val target = restoreTarget(r.originalPath)
         fs.mkdirs(target.substringBeforeLast('/'))
         if (!fs.copy(kept, target)) return RestoreResult.Failed("не удалось скопировать оригинал")
         if (hashOrNull(target) != r.sha256) {
@@ -67,20 +68,8 @@ class Restorer(
         return RestoreResult.Restored(target)
     }
 
-    private fun freeTarget(path: String): String {
-        if (!fs.exists(path)) return path
-        val dir = path.substringBeforeLast('/')
-        val name = path.substringAfterLast('/')
-        val base = name.substringBeforeLast('.')
-        val ext = if (name.contains('.')) "." + name.substringAfterLast('.') else ""
-        var candidate = "$dir/$base (восстановлено)$ext"
-        var i = 2
-        while (fs.exists(candidate)) {
-            candidate = "$dir/$base (восстановлено $i)$ext"
-            i++
-        }
-        return candidate
-    }
+    private fun restoreTarget(path: String): String =
+        freeTarget(fs, path) { if (it == 1) "восстановлено" else "восстановлено $it" }
 
     private fun hashOrNull(path: String): String? =
         try { hasher.full(path) } catch (e: IOException) { null } catch (e: SecurityException) { null }

@@ -340,7 +340,11 @@ private fun HistoryRow(
 
 private fun statusColor(r: ActionRecord): Color = when (r.status) {
     ActionStatus.RESTORED -> RESTORE_GREEN
-    ActionStatus.DONE -> if (r.kind == ActionKind.TRASH) TRASH_ORANGE else DELETE_RED
+    ActionStatus.DONE -> when (r.kind) {
+        ActionKind.TRASH -> TRASH_ORANGE
+        ActionKind.SORT_MOVE -> RESTORE_GREEN
+        ActionKind.DELETE_DUPLICATE, ActionKind.DELETE_APK -> DELETE_RED
+    }
     ActionStatus.PURGED, ActionStatus.FAILED -> DELETE_RED
     ActionStatus.PENDING -> TRASH_ORANGE
 }
@@ -353,6 +357,7 @@ private fun statusText(r: ActionRecord): String = when (r.status) {
     ActionStatus.DONE -> when (r.kind) {
         ActionKind.TRASH -> "в корзине до ${r.expiresAt?.let { DAY_FORMAT.format(it) } ?: "—"}"
         ActionKind.DELETE_DUPLICATE -> "удалён"
+        ActionKind.SORT_MOVE -> "разложен в «${r.groupTitle}»"
         ActionKind.DELETE_APK -> "удалён окончательно — при необходимости скачайте заново"
     }
 }
