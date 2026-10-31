@@ -67,4 +67,37 @@ class PendingReconcilerTest {
         assertEquals(0, reconciler.reconcile())
         assertEquals(ActionStatus.DONE, log.get(id)!!.status)
     }
+
+    private fun pendingSort(): Long = log.insert(
+        ActionRecord(
+            sessionId = "s", groupId = "sort:OTHER", groupTitle = "Разное", kind = ActionKind.SORT_MOVE,
+            originalPath = p("DCIM/a.jpg"), size = 10, status = ActionStatus.PENDING, createdAt = T0,
+            movedToPath = p("Pictures/Сортировка/Разное/a.jpg"),
+        ),
+    )
+
+    @Test
+    fun `interrupted sort with the file still in place is marked failed`() {
+        fs.add(p("DCIM/a.jpg"), bytes(10, 1))
+        val id = pendingSort()
+        reconciler.reconcile()
+        assertEquals(ActionStatus.FAILED, log.get(id)!!.status)
+        assertEquals("прервано: файл остался на месте", log.get(id)!!.reason)
+    }
+
+    @Test
+    fun `interrupted sort with the file already moved is done`() {
+        fs.add(p("Pictures/Сортировка/Разное/a.jpg"), bytes(10, 1))
+        val id = pendingSort()
+        reconciler.reconcile()
+        assertEquals(ActionStatus.DONE, log.get(id)!!.status)
+    }
+
+    @Test
+    fun `interrupted sort with the file nowhere is failed, not done`() {
+        val id = pendingSort()
+        reconciler.reconcile()
+        assertEquals(ActionStatus.FAILED, log.get(id)!!.status)
+        assertEquals("файл не найден после сбоя", log.get(id)!!.reason)
+    }
 }

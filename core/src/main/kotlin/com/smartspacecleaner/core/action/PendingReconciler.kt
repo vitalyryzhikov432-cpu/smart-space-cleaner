@@ -15,6 +15,7 @@ class PendingReconciler(private val fs: FileSystem, private val log: ActionLogSt
     }
 
     private fun resolve(r: ActionRecord): ActionRecord = when {
+        r.kind == ActionKind.SORT_MOVE -> resolveSort(r)
         fs.exists(r.originalPath) ->
             r.copy(status = ActionStatus.FAILED, reason = "прервано: действие не завершилось, файл на месте")
         r.kind == ActionKind.TRASH && r.trashPath != null && fs.exists(r.trashPath) ->
@@ -23,5 +24,11 @@ class PendingReconciler(private val fs: FileSystem, private val log: ActionLogSt
             r.copy(status = ActionStatus.FAILED, reason = "файл потерян при сбое: его нет ни на месте, ни в корзине")
         else ->
             r.copy(status = ActionStatus.DONE)
+    }
+
+    private fun resolveSort(r: ActionRecord): ActionRecord = when {
+        fs.exists(r.originalPath) -> r.copy(status = ActionStatus.FAILED, reason = "прервано: файл остался на месте")
+        r.movedToPath != null && fs.exists(r.movedToPath) -> r.copy(status = ActionStatus.DONE)
+        else -> r.copy(status = ActionStatus.FAILED, reason = "файл не найден после сбоя")
     }
 }
