@@ -19,6 +19,8 @@ android {
         versionCode = 4
         versionName = "1.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Нативные библиотеки ML Kit весят ~30 МБ на каждую архитектуру; приложение ставится только на 64-битные ARM-телефоны.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     // Ключ подписи хранится вне репозитория; путь к его настройкам можно переопределить
