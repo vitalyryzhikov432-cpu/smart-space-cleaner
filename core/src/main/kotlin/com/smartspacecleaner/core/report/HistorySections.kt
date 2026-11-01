@@ -8,7 +8,9 @@ import com.smartspacecleaner.core.model.ActionStatus
 data class HistorySections(val inTrash: List<ActionRecord>, val earlier: List<ActionRecord>) {
     companion object {
         fun of(records: List<ActionRecord>): HistorySections {
-            val (inTrash, earlier) = records.partition { it.status == ActionStatus.DONE && it.kind == ActionKind.TRASH }
+            // Сортировка показывается одной записью на сессию (SortSessions), а не по файлу.
+            val (inTrash, earlier) = records.filter { it.kind != ActionKind.SORT_MOVE }
+                .partition { it.status == ActionStatus.DONE && it.kind == ActionKind.TRASH }
             return HistorySections(inTrash, earlier)
         }
     }

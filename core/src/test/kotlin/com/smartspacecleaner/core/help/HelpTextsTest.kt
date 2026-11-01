@@ -31,4 +31,10 @@ class HelpTextsTest {
         val text = HelpTexts.banner(HintId.PLAN)
         listOf("0 —", "1 —", "2 —").forEach { assertTrue(it in text, it) }
     }
+
+    @Test
+    fun `sort plan help says doubtful photos stay in place`() {
+        assertTrue("останутся на месте" in HelpTexts.info(InfoTopic.SORT_PLAN).body)
+        assertTrue("без интернета" in HelpTexts.info(InfoTopic.SORT_SOURCES).body)
+    }
 }

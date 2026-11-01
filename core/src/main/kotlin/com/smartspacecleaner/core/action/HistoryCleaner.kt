@@ -11,7 +11,7 @@ import java.time.Duration
 class HistoryCleaner(private val log: ActionLogStore, private val clock: Clock, private val keep: Duration = Duration.ofDays(15)) {
     fun forgetOld(): Int {
         val cutoff = clock.now().minus(keep)
-        return forget(log.all().filter { isFinished(it) && it.createdAt.isBefore(cutoff) })
+        return forget(log.all().filter { (isFinished(it) || isSorted(it)) && it.createdAt.isBefore(cutoff) })
     }
 
     fun clearEarlier(): Int = forget(log.all().filter(::isFinished))
@@ -26,4 +26,7 @@ class HistoryCleaner(private val log: ActionLogStore, private val clock: Clock, 
         ActionStatus.DONE -> r.kind == ActionKind.DELETE_APK
         ActionStatus.PENDING -> false
     }
+
+    /** Разложенный файл: через 15 дней запись забывается, сам файл остаётся в папке. «Очистить историю» его не трогает — иначе пропадёт «Вернуть всё на место». */
+    private fun isSorted(r: ActionRecord): Boolean = r.kind == ActionKind.SORT_MOVE && r.status == ActionStatus.DONE
 }

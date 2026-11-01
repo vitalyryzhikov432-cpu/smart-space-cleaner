@@ -8,6 +8,9 @@ import com.smartspacecleaner.core.port.ApkInspector
 import com.smartspacecleaner.core.port.ApkStatus
 import com.smartspacecleaner.core.port.Clock
 import com.smartspacecleaner.core.port.FileSystem
+import com.smartspacecleaner.core.sort.Analysis
+import com.smartspacecleaner.core.sort.PhotoAnalyzer
+import com.smartspacecleaner.core.sort.PhotoSignals
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -28,6 +31,8 @@ class FakeFileSystem(var free: Long = 10L * 1024 * 1024 * 1024) : FileSystem {
     val failingPaths = mutableSetOf<String>()
     /** openRead для этих путей бросает IOException. */
     val unreadablePaths = mutableSetOf<String>()
+    /** Папки, удалённые через deleteEmptyDir, по порядку. */
+    val deletedDirs = mutableListOf<String>()
 
     fun add(path: String, content: ByteArray, modifiedAt: Instant = T0) {
         files[path] = FakeFile(content, modifiedAt)
@@ -71,6 +76,12 @@ class FakeFileSystem(var free: Long = 10L * 1024 * 1024 * 1024) : FileSystem {
         return files.remove(path) != null
     }
 
+    override fun deleteEmptyDir(path: String): Boolean {
+        if (files.keys.any { it.startsWith("$path/") }) return false
+        deletedDirs += path
+        return true
+    }
+
     override fun mkdirs(path: String) = true
 
     override fun createEmptyFile(path: String): Boolean {
@@ -110,4 +121,14 @@ class InMemoryActionLogStore : ActionLogStore {
 
 class FakeApkInspector(private val statuses: Map<String, ApkStatus> = emptyMap()) : ApkInspector {
     override fun inspect(path: String) = statuses[path] ?: ApkStatus.UNREADABLE
+}
+
+/** Возвращает заданные сигналы; для остальных путей — «ничего не найдено». Запоминает, какие пути спрашивали. */
+class FakePhotoAnalyzer(private val results: Map<String, Analysis> = emptyMap()) : PhotoAnalyzer {
+    val asked = mutableListOf<String>()
+
+    override fun analyze(path: String): Analysis {
+        asked += path
+        return results[path] ?: Analysis.Ok(PhotoSignals())
+    }
 }

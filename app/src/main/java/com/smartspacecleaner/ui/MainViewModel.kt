@@ -23,16 +23,23 @@ import com.smartspacecleaner.core.report.Report
 import com.smartspacecleaner.core.report.ReportBuilder
 import com.smartspacecleaner.core.report.Summary
 import com.smartspacecleaner.core.report.SummaryBuilder
+import com.smartspacecleaner.core.sort.SortCategory
+import com.smartspacecleaner.core.sort.SortPlan
+import com.smartspacecleaner.core.sort.SortSection
+import com.smartspacecleaner.core.sort.SortTexts
+import com.smartspacecleaner.core.sort.SourceFolder
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-enum class Screen { Onboarding, Permission, Scanning, Summary, Plan, Executing, Report, History }
+enum class Screen { Onboarding, Permission, Scanning, Summary, Plan, Executing, Report, History, SortSources, SortAnalyzing, SortPlan, SortMoving, SortResult }
 
 data class UiState(
     val screen: Screen = Screen.Permission,
@@ -51,6 +58,16 @@ data class UiState(
     val dismissedHints: Set<HintId> = emptySet(),
     val feedback: FeedbackSource? = null,
     val feedbackName: String = "",
+    /** null — список папок ещё собирается. */
+    val sortSources: List<SourceFolder>? = null,
+    val sortPicked: Set<String> = emptySet(),
+    val sortDone: Int = 0,
+    val sortTotal: Int = 0,
+    val sortPlan: SortPlan? = null,
+    val sortSelected: Set<String> = emptySet(),
+    /** Путь «Разложить сразу»: анализ закончен, ждём ответа в диалоге. */
+    val sortQuickConfirm: Boolean = false,
+    val sortResult: String? = null,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -225,6 +242,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Сессии сортировки, которые возвращаются прямо сейчас: второй запуск той же сессии не нужен. */
+    private val restoringSorts = mutableSetOf<String>()
+
+    fun restoreSort(sessionId: String) {
+        if (!restoringSorts.add(sessionId)) return
+        viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) { c.sortRestorer.restoreSession(sessionId) }
+                scanMedia(result.touchedPaths)
+                _state.update { it.copy(history = loadHistory(), toast = SortTexts.restored(result)) }
+            } finally {
+                restoringSorts.remove(sessionId)
+            }
+        }
+    }
+
     fun clearHistory() {
         viewModelScope.launch {
             val cleared = withContext(Dispatchers.IO) { c.historyCleaner.clearEarlier() }
@@ -242,6 +275,98 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun consumeToast() = _state.update { it.copy(toast = null) }
 
     private suspend fun loadHistory(): List<ActionRecord> = withContext(Dispatchers.IO) { c.log.all().reversed() }
+
+    private var sortJob: Job? = null
+
+    fun openSortSources() {
+        _state.update { it.copy(screen = Screen.SortSources, sortSources = null, sortPicked = emptySet(), sortPlan = null, sortResult = null) }
+        viewModelScope.launch {
+            val sources = withContext(Dispatchers.IO) { c.photoSources.list() }
+            _state.update { it.copy(sortSources = sources) }
+        }
+    }
+
+    fun toggleSortSource(path: String) =
+        _state.update { it.copy(sortPicked = if (path in it.sortPicked) it.sortPicked - path else it.sortPicked + path) }
+
+    fun startSortAnalysis(quick: Boolean) {
+        val s = _state.value
+        if (s.screen != Screen.SortSources) return
+        val files = s.sortSources.orEmpty().filter { it.path in s.sortPicked }.flatMap { it.files }
+        if (files.isEmpty()) return
+        _state.update { it.copy(screen = Screen.SortAnalyzing, sortDone = 0, sortTotal = files.size, sortQuickConfirm = false) }
+        sortJob?.cancel()
+        sortJob = viewModelScope.launch {
+            val plan = withContext(Dispatchers.IO) {
+                c.sortAnalysis.run(files, onProgress = { n -> _state.update { it.copy(sortDone = n) } }, shouldStop = { !isActive })
+            } ?: return@launch
+            val selected = plan.defaultSelection()
+            _state.update {
+                when {
+                    !quick -> it.copy(screen = Screen.SortPlan, sortPlan = plan, sortSelected = selected)
+                    selected.isEmpty() -> it.copy(screen = Screen.SortPlan, sortPlan = plan, sortSelected = selected, toast = SortTexts.NOTHING_SURE)
+                    else -> it.copy(sortPlan = plan, sortSelected = selected, sortQuickConfirm = true)
+                }
+            }
+        }
+    }
+
+    fun cancelSortAnalysis() {
+        sortJob?.cancel()
+        _state.update { it.copy(screen = Screen.SortSources, sortQuickConfirm = false) }
+    }
+
+    /** «Посмотреть план» в диалоге «Разложить сразу». */
+    fun reviewSortPlan() = _state.update { it.copy(screen = Screen.SortPlan, sortQuickConfirm = false) }
+
+    fun toggleSortItem(path: String) =
+        _state.update { it.copy(sortSelected = if (path in it.sortSelected) it.sortSelected - path else it.sortSelected + path) }
+
+    fun toggleSortSection(section: SortSection) = _state.update {
+        val paths = section.items.map { i -> i.path }.toSet()
+        it.copy(sortSelected = if (it.sortSelected.containsAll(paths)) it.sortSelected - paths else it.sortSelected + paths)
+    }
+
+    fun reassignSort(path: String, category: SortCategory) = _state.update {
+        it.copy(sortPlan = it.sortPlan?.reassign(path, category), sortSelected = it.sortSelected + path)
+    }
+
+    fun moveSorted() {
+        val s = _state.value
+        if (s.screen == Screen.SortMoving) return
+        val plan = s.sortPlan ?: return
+        val moves = plan.moves(s.sortSelected)
+        if (moves.isEmpty()) return
+        _state.update { it.copy(screen = Screen.SortMoving, sortQuickConfirm = false, sortDone = 0, sortTotal = moves.size) }
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                c.sortExecutor.execute(moves, UUID.randomUUID().toString()) { n -> _state.update { it.copy(sortDone = n) } }
+            }
+            scanMedia(result.touchedPaths)
+            val rest = plan.without(result.moved.map { it.originalPath }.toSet())
+            val folders = result.moved.map { it.groupTitle }.distinct().size
+            // Неудавшиеся остаются в rest, но в тексте они уже посчитаны отдельно.
+            val left = rest.items.size - result.failed.size
+            val text = SortTexts.result(result.moved.size, folders, left, result.failed.size)
+            _state.update { it.copy(screen = Screen.SortResult, sortPlan = rest, sortResult = text) }
+        }
+    }
+
+    /**
+     * «Назад» из плана: к списку папок с прежними галочками, без нового поиска.
+     * Если перенос в этом заходе уже был, список папок устарел — возвращаемся к итогу, откуда выход через [closeSort].
+     */
+    fun backToSortSources() = _state.update {
+        it.copy(screen = if (it.sortResult != null) Screen.SortResult else Screen.SortSources)
+    }
+
+    /** «Разобрать оставшиеся»: план только из «Проверьте». */
+    fun reviewSortLeftovers() = _state.update {
+        it.copy(screen = Screen.SortPlan, sortPlan = it.sortPlan?.reviewOnly(), sortSelected = emptySet())
+    }
+
+    /** Файлы переехали — старый план очистки устарел, поэтому сканируем заново. */
+    fun closeSort() = startScan()
 
     private fun scanMedia(paths: List<String>) {
         if (paths.isNotEmpty()) MediaScannerConnection.scanFile(getApplication(), paths.toTypedArray(), null, null)

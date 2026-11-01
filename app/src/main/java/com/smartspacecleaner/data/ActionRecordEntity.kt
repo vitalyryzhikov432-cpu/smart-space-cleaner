@@ -23,6 +23,7 @@ data class ActionRecordEntity(
     val reason: String?,
     val createdAtMillis: Long,
     val expiresAtMillis: Long?,
+    val movedToPath: String?,
 ) {
     fun toDomain() = ActionRecord(
         id = id,
@@ -39,6 +40,7 @@ data class ActionRecordEntity(
         reason = reason,
         createdAt = Instant.ofEpochMilli(createdAtMillis),
         expiresAt = expiresAtMillis?.let { Instant.ofEpochMilli(it) },
+        movedToPath = movedToPath,
     )
 
     companion object {
@@ -57,6 +59,7 @@ data class ActionRecordEntity(
             reason = r.reason,
             createdAtMillis = r.createdAt.toEpochMilli(),
             expiresAtMillis = r.expiresAt?.toEpochMilli(),
+            movedToPath = r.movedToPath,
         )
     }
 }

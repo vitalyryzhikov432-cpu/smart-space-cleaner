@@ -16,6 +16,8 @@ interface FileSystem {
     /** Копирование; false, если цель уже существует или не получилось. */
     fun copy(from: String, to: String): Boolean
     fun delete(path: String): Boolean
+    /** Удаляет папку, только если она пуста; false — не пуста, не папка или не получилось. */
+    fun deleteEmptyDir(path: String): Boolean
     fun mkdirs(path: String): Boolean
     fun createEmptyFile(path: String): Boolean
     fun freeBytes(): Long

@@ -8,6 +8,8 @@ enum class Messenger(val title: String, val dirs: List<String>) {
 class StorageLayout(val root: String) {
     val trashRoot: String get() = "$root/.SmartSpaceCleaner/trash"
     val excludedPrefixes: Set<String> get() = setOf("$root/Android/data", "$root/Android/obb", "$root/.SmartSpaceCleaner")
+    /** Куда раскладываются фото и видео по категориям. */
+    val sortRoot: String get() = "$root/$SORT_DIR"
 
     fun relative(path: String): String = path.removePrefix("$root/")
 
@@ -28,4 +30,8 @@ class StorageLayout(val root: String) {
     fun isHidden(path: String): Boolean = relative(path).split('/').any { it.startsWith('.') }
 
     fun parentRelative(path: String): String = relative(path).substringBeforeLast('/', "")
+
+    companion object {
+        const val SORT_DIR = "Pictures/Сортировка"
+    }
 }

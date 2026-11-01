@@ -21,9 +21,15 @@ import com.smartspacecleaner.core.scan.OldScreenshotRule
 import com.smartspacecleaner.core.scan.Planner
 import com.smartspacecleaner.core.scan.Scanner
 import com.smartspacecleaner.core.scan.StorageLayout
+import com.smartspacecleaner.core.sort.PhotoClassifier
+import com.smartspacecleaner.core.sort.PhotoSources
+import com.smartspacecleaner.core.sort.SortAnalysis
+import com.smartspacecleaner.core.sort.SortExecutor
+import com.smartspacecleaner.core.sort.SortRestorer
 import com.smartspacecleaner.data.AndroidApkInspector
 import com.smartspacecleaner.data.AndroidFileSystem
 import com.smartspacecleaner.data.AppDatabase
+import com.smartspacecleaner.data.MlKitPhotoAnalyzer
 import com.smartspacecleaner.data.RoomActionLogStore
 import com.smartspacecleaner.data.StorageInfo
 import com.smartspacecleaner.data.UiPrefs
@@ -34,7 +40,9 @@ class AppContainer(context: Context) {
     @Suppress("DEPRECATION")
     private val storageRoot = Environment.getExternalStorageDirectory()
     private val clock = WallClock
-    private val db = Room.databaseBuilder(context, AppDatabase::class.java, "smart-space.db").build()
+    private val db = Room.databaseBuilder(context, AppDatabase::class.java, "smart-space.db")
+        .addMigrations(AppDatabase.MIGRATION_1_2)
+        .build()
     private val hasher: Hasher
 
     val layout = StorageLayout(storageRoot.path)
@@ -44,6 +52,11 @@ class AppContainer(context: Context) {
     val prefs = UiPrefs(context)
     val feedback = FeedbackSender(context)
     val duplicateStrategy = DuplicateStrategy.TRASH
+    val photoSources = PhotoSources(fs, layout)
+    // Модели ML Kit грузятся в память только при первой сортировке.
+    val sortAnalysis: SortAnalysis by lazy { SortAnalysis(PhotoClassifier(layout, MlKitPhotoAnalyzer())) }
+    val sortExecutor = SortExecutor(fs, log, clock, layout)
+    val sortRestorer = SortRestorer(fs, log, layout)
 
     val scanner: Scanner
     val executor: Executor

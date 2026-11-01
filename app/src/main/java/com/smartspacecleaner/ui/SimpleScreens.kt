@@ -48,14 +48,14 @@ fun ScanningScreen(filesSeen: Int) {
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Radar(filesSeen)
+        Radar("$filesSeen", "файлов просмотрено")
         Text("Пока только смотрю, ничего не удаляю", style = MaterialTheme.typography.titleMedium)
     }
 }
 
-/** Радар: бегущий луч, расходящиеся круги и счётчик просмотренных файлов в центре. */
+/** Радар: бегущий луч, расходящиеся круги и счётчик в центре. */
 @Composable
-private fun Radar(filesSeen: Int) {
+internal fun Radar(value: String, caption: String) {
     val transition = rememberInfiniteTransition(label = "radar")
     val sweep by transition.animateFloat(
         initialValue = 0f,
@@ -100,20 +100,21 @@ private fun Radar(filesSeen: Int) {
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$filesSeen", style = MaterialTheme.typography.headlineMedium)
-            Text("файлов просмотрено", style = MaterialTheme.typography.bodySmall)
+            Text(value, style = MaterialTheme.typography.headlineMedium)
+            Text(caption, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 @Composable
-fun SummaryScreen(summary: Summary, scanMillis: Long, onShowPlan: () -> Unit, onHistory: () -> Unit) {
+fun SummaryScreen(summary: Summary, scanMillis: Long, onShowPlan: () -> Unit, onHistory: () -> Unit, onSort: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("${summary.severity.emoji} Память: ${summary.severity.label}", style = MaterialTheme.typography.headlineSmall)
         summary.lines.forEach { Text(it) }
         Text("Скан занял ${scanMillis / 1000} с", style = MaterialTheme.typography.bodySmall)
         Button(onClick = onShowPlan) { Text("Показать план") }
         OutlinedButton(onClick = onHistory) { Text("История") }
+        OutlinedButton(onClick = onSort) { Text("Разложить фото по папкам") }
     }
 }
 

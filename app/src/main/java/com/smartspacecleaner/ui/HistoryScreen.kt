@@ -44,6 +44,9 @@ import com.smartspacecleaner.core.model.ActionStatus
 import com.smartspacecleaner.core.report.HistoryPreview
 import com.smartspacecleaner.core.report.HistorySections
 import com.smartspacecleaner.core.report.TrashContents
+import com.smartspacecleaner.core.sort.SortSession
+import com.smartspacecleaner.core.sort.SortSessions
+import com.smartspacecleaner.core.sort.SortTexts
 import com.smartspacecleaner.core.text.displayPath
 import com.smartspacecleaner.core.text.formatBytes
 import com.smartspacecleaner.core.text.plural
@@ -68,6 +71,7 @@ fun HistoryScreen(
     onRestore: (Long) -> Unit,
     onPurge: (List<Long>) -> Unit,
     onRestoreMany: (List<Long>) -> Unit,
+    onRestoreSort: (String) -> Unit,
     onClearEarlier: () -> Unit,
     onOpen: (ActionRecord) -> Unit,
     readDetails: (ActionRecord) -> List<Pair<String, String>>?,
@@ -76,6 +80,8 @@ fun HistoryScreen(
     val context = LocalContext.current
     val sections = HistorySections.of(records)
     val trash = TrashContents.of(records)
+    val sortSessions = SortSessions.of(records)
+    var confirmSort by remember { mutableStateOf<SortSession?>(null) }
     var picked by remember { mutableStateOf(emptySet<Long>()) }
     // Файл мог уйти из корзины (вернули, удалили) — отметка с него снимается сама.
     val selected = picked intersect trash.ids.toSet()
@@ -125,6 +131,15 @@ fun HistoryScreen(
                     onDetails = { details = record },
                     onPurge = { confirmPurge = listOf(record.id) },
                 )
+            }
+            if (sortSessions.isNotEmpty()) {
+                item(key = "sort-title") {
+                    HorizontalDivider(Modifier.padding(top = 16.dp))
+                    SectionTitle("Сортировка") {}
+                }
+                items(sortSessions, key = { "sort-${it.sessionId}" }) { session ->
+                    SortSessionRow(session, onRestore = { confirmSort = session })
+                }
             }
             item(key = "earlier-title") {
                 HorizontalDivider(Modifier.padding(top = 16.dp))
@@ -196,6 +211,21 @@ fun HistoryScreen(
                 }) { Text("Очистить") }
             },
             dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Отмена") } },
+        )
+    }
+
+    confirmSort?.let { session ->
+        AlertDialog(
+            onDismissRequest = { confirmSort = null },
+            title = { Text("Вернуть всё на место?") },
+            text = { Text("Файлов: ${session.moved}. Они вернутся в папки, где лежали до сортировки.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRestoreSort(session.sessionId)
+                    confirmSort = null
+                }) { Text("Вернуть") }
+            },
+            dismissButton = { TextButton(onClick = { confirmSort = null }) { Text("Отмена") } },
         )
     }
 
@@ -287,6 +317,26 @@ private fun DetailsDialog(record: ActionRecord, readDetails: (ActionRecord) -> L
     )
 }
 
+@Composable
+private fun SortSessionRow(session: SortSession, onRestore: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Text(SortTexts.sessionTitle(session), fontWeight = FontWeight.Bold)
+        Text(SESSION_FORMAT.format(session.createdAt), style = MaterialTheme.typography.bodySmall)
+        Text(
+            SortTexts.sessionStatus(session),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (session.canRestore) TRASH_ORANGE else RESTORE_GREEN,
+        )
+        if (session.canRestore) {
+            Button(
+                onClick = onRestore,
+                colors = ButtonDefaults.buttonColors(containerColor = RESTORE_GREEN),
+                modifier = Modifier.padding(top = 4.dp),
+            ) { Text("Вернуть всё на место") }
+        }
+    }
+}
+
 /** [checked] = null — строка журнала «Ранее», без галочки и без действий над файлом. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -340,7 +390,11 @@ private fun HistoryRow(
 
 private fun statusColor(r: ActionRecord): Color = when (r.status) {
     ActionStatus.RESTORED -> RESTORE_GREEN
-    ActionStatus.DONE -> if (r.kind == ActionKind.TRASH) TRASH_ORANGE else DELETE_RED
+    ActionStatus.DONE -> when (r.kind) {
+        ActionKind.TRASH -> TRASH_ORANGE
+        ActionKind.SORT_MOVE -> RESTORE_GREEN
+        ActionKind.DELETE_DUPLICATE, ActionKind.DELETE_APK -> DELETE_RED
+    }
     ActionStatus.PURGED, ActionStatus.FAILED -> DELETE_RED
     ActionStatus.PENDING -> TRASH_ORANGE
 }
@@ -353,6 +407,7 @@ private fun statusText(r: ActionRecord): String = when (r.status) {
     ActionStatus.DONE -> when (r.kind) {
         ActionKind.TRASH -> "в корзине до ${r.expiresAt?.let { DAY_FORMAT.format(it) } ?: "—"}"
         ActionKind.DELETE_DUPLICATE -> "удалён"
+        ActionKind.SORT_MOVE -> "разложен в «${r.groupTitle}»"
         ActionKind.DELETE_APK -> "удалён окончательно — при необходимости скачайте заново"
     }
 }

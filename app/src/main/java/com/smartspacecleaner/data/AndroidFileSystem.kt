@@ -44,6 +44,11 @@ class AndroidFileSystem(private val storageRoot: File) : FileSystem {
 
     override fun delete(path: String) = File(path).delete()
 
+    override fun deleteEmptyDir(path: String): Boolean {
+        val dir = File(path)
+        return dir.isDirectory && dir.list()?.isEmpty() == true && dir.delete()
+    }
+
     override fun mkdirs(path: String): Boolean {
         val dir = File(path)
         return dir.isDirectory || dir.mkdirs()
