@@ -48,9 +48,65 @@ class PhotoClassifierTest {
     }
 
     @Test
-    fun `document thresholds are inclusive at 25 percent and 80 characters`() {
-        assertEquals(SortCategory.DOCUMENTS, classify(camera, PhotoSignals(textAreaRatio = 0.25f, textChars = 80)).category)
-        assertEquals(SortCategory.OTHER, classify(camera, PhotoSignals(textAreaRatio = 0.24f, textChars = 80)).category)
+    fun `document thresholds are inclusive at 2 percent and 80 characters`() {
+        assertEquals(SortCategory.DOCUMENTS, classify(camera, PhotoSignals(textAreaRatio = 0.02f, textChars = 80)).category)
+        assertEquals(SortCategory.OTHER, classify(camera, PhotoSignals(textAreaRatio = 0.019f, textChars = 80)).category)
+    }
+
+    // Числа ниже — с телефона автора: снимки листов, паспортов и чеков, людей на пляже и пейзажей.
+    @Test
+    fun `a photographed sheet with small text is a document`() {
+        assertEquals(
+            SortDecision(SortCategory.DOCUMENTS, "найден текст: 100 символов"),
+            classify(camera, PhotoSignals(textAreaRatio = 0.0269f, textChars = 100, labels = listOf(Label("Paper", 0.51f)))),
+        )
+    }
+
+    @Test
+    fun `a passport with a face photo is a document, not people`() {
+        val passport = PhotoSignals(textAreaRatio = 0.1324f, textChars = 243, largestFaceRatio = 0.0342f, labels = listOf(Label("Paper", 0.75f)))
+        assertEquals(SortCategory.DOCUMENTS, classify(camera, passport).category)
+    }
+
+    @Test
+    fun `sure paper is a document even with little or no text`() {
+        assertEquals(SortDecision(SortCategory.DOCUMENTS, "метка Paper, 78 %"), classify(camera, labels("Paper" to 0.78f, "Food" to 0.63f)))
+        val weakText = PhotoSignals(textAreaRatio = 0.0064f, textChars = 41, labels = listOf(Label("Paper", 0.77f), Label("Food", 0.56f)))
+        assertEquals(SortCategory.DOCUMENTS, classify(camera, weakText).category)
+    }
+
+    @Test
+    fun `unsure paper goes to review`() {
+        val d = classify(camera, PhotoSignals(textAreaRatio = 0.0247f, textChars = 71, labels = listOf(Label("Paper", 0.59f))))
+        assertNull(d.category)
+        assertEquals("похоже на «Документы», 59 %", d.reason)
+    }
+
+    @Test
+    fun `a tiny face of a person in full height means people`() {
+        val beach = PhotoSignals(largestFaceRatio = 0.0012f, labels = listOf(Label("Beach", 0.80f), Label("Rock", 0.81f)))
+        assertEquals(SortDecision(SortCategory.PEOPLE, "найдено лицо"), classify(camera, beach))
+    }
+
+    @Test
+    fun `a person label means people even without a face and beats nature`() {
+        assertEquals(
+            SortDecision(SortCategory.PEOPLE, "метка Fun, 80 %"),
+            classify(camera, labels("Beach" to 0.97f, "Fun" to 0.80f, "Sitting" to 0.61f)),
+        )
+        assertEquals(SortCategory.PEOPLE, classify(camera, labels("Beach" to 0.95f, "Shorts" to 0.50f)).category)
+        assertEquals(SortCategory.PEOPLE, classify(camera, labels("Selfie" to 0.72f, "Person" to 0.99f)).category)
+    }
+
+    @Test
+    fun `a person label under 50 percent does not count`() {
+        assertEquals(SortCategory.NATURE, classify(camera, labels("Beach" to 0.95f, "Shorts" to 0.49f)).category)
+    }
+
+    @Test
+    fun `a landscape with holiday labels stays nature`() {
+        val cliffs = labels("Beach" to 0.95f, "Rock" to 0.83f, "Vacation" to 0.70f, "Leisure" to 0.60f, "Event" to 0.54f)
+        assertEquals(SortCategory.NATURE, classify(camera, cliffs).category)
     }
 
     @Test
@@ -61,9 +117,9 @@ class PhotoClassifierTest {
     }
 
     @Test
-    fun `a face of at least 3 percent of the frame means people`() {
-        assertEquals(SortDecision(SortCategory.PEOPLE, "найдено лицо"), classify(camera, PhotoSignals(largestFaceRatio = 0.03f)))
-        assertEquals(SortCategory.OTHER, classify(camera, PhotoSignals(largestFaceRatio = 0.029f)).category)
+    fun `a face of at least 0,1 percent of the frame means people`() {
+        assertEquals(SortDecision(SortCategory.PEOPLE, "найдено лицо"), classify(camera, PhotoSignals(largestFaceRatio = 0.001f)))
+        assertEquals(SortCategory.OTHER, classify(camera, PhotoSignals(largestFaceRatio = 0.0009f)).category)
     }
 
     @Test
@@ -94,6 +150,17 @@ class PhotoClassifierTest {
     @Test
     fun `a weak animal close to nature still goes to review`() {
         assertNull(classify(camera, labels("Cat" to 0.70f, "Sky" to 0.72f)).category)
+    }
+
+    @Test
+    fun `an animal beats nature from exactly 75 percent`() {
+        assertEquals(SortCategory.ANIMALS, classify(camera, labels("Cat" to 0.75f, "Sky" to 0.80f)).category)
+        assertNull(classify(camera, labels("Cat" to 0.74f, "Sky" to 0.80f)).category)
+    }
+
+    @Test
+    fun `a sure animal close to food still goes to review`() {
+        assertNull(classify(camera, labels("Cat" to 0.80f, "Food" to 0.85f)).category)
     }
 
     @Test

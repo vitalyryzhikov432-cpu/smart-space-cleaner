@@ -16,7 +16,6 @@ import com.smartspacecleaner.core.sort.Label
 import com.smartspacecleaner.core.sort.PhotoAnalyzer
 import com.smartspacecleaner.core.sort.PhotoSignals
 import java.io.File
-import java.util.Locale
 
 /** Смотрит фото тремя встроенными моделями ML Kit. Вызывать не из главного потока: ждёт результатов синхронно. */
 class MlKitPhotoAnalyzer : PhotoAnalyzer {
@@ -36,22 +35,14 @@ class MlKitPhotoAnalyzer : PhotoAnalyzer {
             val textChars = text.textBlocks.sumOf { b -> b.text.count { !it.isWhitespace() } }
             val largestFace = Tasks.await(faces.process(image)).maxOfOrNull { it.boundingBox.width().toLong() * it.boundingBox.height() } ?: 0L
             val labels = Tasks.await(labeler.process(image)).map { Label(it.text, it.confidence) }
-            val signals = PhotoSignals(
-                textAreaRatio = (textArea / area).coerceAtMost(1f),
-                textChars = textChars,
-                largestFaceRatio = (largestFace / area).coerceAtMost(1f),
-                labels = labels,
-            )
-            // Временно: строка на фото для подстройки порогов на приёмке; убрать после подстройки.
-            Log.d(
-                TAG,
-                String.format(
-                    Locale.ROOT, "signals %s face=%.4f textArea=%.4f chars=%d labels=%s",
-                    File(path).name, signals.largestFaceRatio, signals.textAreaRatio, signals.textChars,
-                    labels.joinToString(",") { String.format(Locale.ROOT, "%s:%.2f", it.name, it.confidence) },
+            Analysis.Ok(
+                PhotoSignals(
+                    textAreaRatio = (textArea / area).coerceAtMost(1f),
+                    textChars = textChars,
+                    largestFaceRatio = (largestFace / area).coerceAtMost(1f),
+                    labels = labels,
                 ),
             )
-            Analysis.Ok(signals)
         } catch (e: Exception) {
             Log.w(TAG, "analyze failed: $path", e)
             Analysis.Unreadable
